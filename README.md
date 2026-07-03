@@ -10,6 +10,8 @@ adapters**, so the same code runs on any ARM64 board.
 > by [@evilsocket](https://github.com/evilsocket). The expressions are inspired by its
 > e-ink faces — original code, borrowed affection. 🫡
 
+![Piumy — a Raspberry Pi Zero 2 W with an e-paper face](docs/images/device.png)
+
 ## Idea
 
 ```
