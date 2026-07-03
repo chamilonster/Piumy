@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Camilo Brossard
 //
-// Package media: downloads image/video/sticker attachments to disk (never
+// Package media: downloads image/video/sticker/audio attachments to disk (never
 // SQLite — text/metadata in the messages table is the thing that's never
 // deleted; media files are the GC target). No new dependency: whatsmeow
 // already exposes Client.Download() for exactly this.
@@ -24,7 +24,7 @@ type client interface {
 	Download(ctx context.Context, msg whatsmeow.DownloadableMessage) ([]byte, error)
 }
 
-// Downloader saves image/video/sticker attachments under Dir, one
+// Downloader saves image/video/sticker/audio attachments under Dir, one
 // subdirectory per chat JID, named by message ID.
 type Downloader struct {
 	Client client
@@ -38,8 +38,8 @@ type Result struct {
 	Size int64
 }
 
-// Download saves the image/video/sticker in m to disk, if present. Returns
-// (nil, nil) when the message carries none of those three types — most
+// Download saves the image/video/sticker/audio in m to disk, if present.
+// Returns (nil, nil) when the message carries none of those types — most
 // messages (text, other media types out of scope) are a no-op.
 func (d Downloader) Download(ctx context.Context, chatJID, msgID string, m *waE2E.Message) (*Result, error) {
 	dl, mime, ext := pickDownloadable(m)
@@ -64,12 +64,12 @@ func (d Downloader) Download(ctx context.Context, chatJID, msgID string, m *waE2
 	return &Result{Path: path, Mime: mime, Size: int64(len(data))}, nil
 }
 
-// Kind reports which of the three downloadable media types (if any) m
-// carries: "image", "video", "sticker", or "" for anything else. Exposed so
-// a caller can decide whether to even attempt a download (0753's per-type/
-// per-origin media skip settings) without duplicating the same
-// GetImageMessage/GetVideoMessage/GetStickerMessage checks pickDownloadable
-// already does — same priority order (a message has at most one anyway).
+// Kind reports which downloadable media type (if any) m carries:
+// "image", "video", "sticker", "audio", or "" for anything else. Exposed so
+// a caller can decide whether to even attempt a download (the per-type/
+// per-origin media-skip settings) without duplicating the same
+// Get*Message checks pickDownloadable already does — same priority order
+// (a message has at most one anyway).
 func Kind(m *waE2E.Message) string {
 	switch {
 	case m == nil:
@@ -80,13 +80,15 @@ func Kind(m *waE2E.Message) string {
 		return "video"
 	case m.GetStickerMessage() != nil:
 		return "sticker"
+	case m.GetAudioMessage() != nil:
+		return "audio"
 	default:
 		return ""
 	}
 }
 
-// pickDownloadable returns the message's image/video/sticker payload (in that
-// priority — a message has at most one), its mimetype, and a filename
+// pickDownloadable returns the message's image/video/sticker/audio payload (in
+// that priority — a message has at most one), its mimetype, and a filename
 // extension. The caller is expected to have already unwrapped ephemeral/
 // view-once containers (gateway.unwrapMessage) before calling Download.
 func pickDownloadable(m *waE2E.Message) (whatsmeow.DownloadableMessage, string, string) {
@@ -101,6 +103,11 @@ func pickDownloadable(m *waE2E.Message) (whatsmeow.DownloadableMessage, string, 
 	}
 	if sticker := m.GetStickerMessage(); sticker != nil {
 		return sticker, sticker.GetMimetype(), ".webp"
+	}
+	// audio covers WhatsApp voice notes (PTT) and sent audio files — both
+	// arrive as audioMessage, ogg/opus in practice; keep the raw file.
+	if aud := m.GetAudioMessage(); aud != nil {
+		return aud, aud.GetMimetype(), ".ogg"
 	}
 	return nil, "", ""
 }

@@ -49,6 +49,50 @@ func TestDownloadImage(t *testing.T) {
 	}
 }
 
+func TestDownloadAudio(t *testing.T) {
+	dir := t.TempDir()
+	d := Downloader{Client: fakeClient{data: []byte("fake-opus-bytes")}, Dir: dir}
+
+	// WhatsApp voice notes (PTT) and sent audio both arrive as audioMessage.
+	msg := &waE2E.Message{AudioMessage: &waE2E.AudioMessage{Mimetype: proto.String("audio/ogg; codecs=opus")}}
+	res, err := d.Download(context.Background(), "56999999999@s.whatsapp.net", "vn1", msg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res == nil {
+		t.Fatal("got nil Result, want a downloaded voice note")
+	}
+	if res.Mime != "audio/ogg; codecs=opus" {
+		t.Errorf("Mime = %q, want audio/ogg; codecs=opus", res.Mime)
+	}
+	if filepath.Ext(res.Path) != ".ogg" {
+		t.Errorf("Path ext = %q, want .ogg", filepath.Ext(res.Path))
+	}
+	if got, _ := os.ReadFile(res.Path); string(got) != "fake-opus-bytes" {
+		t.Errorf("file content = %q, want fake-opus-bytes", got)
+	}
+}
+
+func TestKind(t *testing.T) {
+	cases := []struct {
+		name string
+		msg  *waE2E.Message
+		want string
+	}{
+		{"image", &waE2E.Message{ImageMessage: &waE2E.ImageMessage{}}, "image"},
+		{"video", &waE2E.Message{VideoMessage: &waE2E.VideoMessage{}}, "video"},
+		{"sticker", &waE2E.Message{StickerMessage: &waE2E.StickerMessage{}}, "sticker"},
+		{"audio", &waE2E.Message{AudioMessage: &waE2E.AudioMessage{}}, "audio"},
+		{"text", &waE2E.Message{Conversation: proto.String("hi")}, ""},
+		{"nil", nil, ""},
+	}
+	for _, c := range cases {
+		if got := Kind(c.msg); got != c.want {
+			t.Errorf("Kind(%s) = %q, want %q", c.name, got, c.want)
+		}
+	}
+}
+
 func TestDownloadNoMedia(t *testing.T) {
 	d := Downloader{Client: fakeClient{}, Dir: t.TempDir()}
 	res, err := d.Download(context.Background(), "j", "m", &waE2E.Message{Conversation: proto.String("just text")})
