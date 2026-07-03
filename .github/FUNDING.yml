@@ -1,0 +1,3 @@
+# Adds a "Sponsor" button to the repo. LemonSqueezy isn't a native platform,
+# so it goes under `custom` — a pay-what-you-want checkout (min $0).
+custom: ["https://clevercat.lemonsqueezy.com/checkout/buy/3e2ebe37-5116-4e2a-9400-2246c1199c8d"]

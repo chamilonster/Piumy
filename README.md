@@ -127,6 +127,12 @@ face + eye engine, self-calibrating battery intelligence, the web dashboard,
 MCP **token auth**, and the client [skill](skill/piumy/SKILL.md). See the full
 feature map — done / in progress / planned — in **[`ROUTEMAP.md`](ROUTEMAP.md)**.
 
+## Support
+
+Piumy is free and open-source — and **donations are the cornerstone** that keep it going. WhatsApp is only the kickoff; the plan is a secure personal gateway for everyone. If it is useful to you, chip in what you want (even $0):
+
+**[♥ Donate — pay what you want](https://clevercat.lemonsqueezy.com/checkout/buy/3e2ebe37-5116-4e2a-9400-2246c1199c8d)**
+
 ## Built with
 
 Piumy stands on excellent open-source work — the Go core is mostly glue around these:
