@@ -1,0 +1,2 @@
+Pillow>=10
+# qrcode[pil]>=7 is required when state=qr is used (in adapters/display/requirements.txt)

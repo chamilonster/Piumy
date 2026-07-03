@@ -1,0 +1,135 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/chamilonster/Piumy/contracts/status.schema.json",
+  "title": "Piumy status",
+  "description": "Data contract between the core (switchboard) and the display adapter. The core writes it atomically; the display reads it and draws the face. The core owns mood + speech (it knows the events); the renderer maps mood -> a pool of face variants and animates within a mood without re-deriving meaning.",
+  "type": "object",
+  "required": ["mood", "updated_at"],
+  "additionalProperties": true,
+  "properties": {
+    "mood": {
+      "type": "string",
+      "description": "Face family the renderer draws. The core sets it from events; transient moods (reading, switching, responding, thinking, done, new_msg, ai_online, vip) are set briefly (~4s) then revert to the queue-derived resting mood (zero/few/swamped) -- UNLESS a tier-3 system mood (error/qr/sleeping/muted/paused) is currently active, which transient events and the queue-derived resting mood can never override (see core's state.moodTier).",
+      "enum": [
+        "idle", "zero", "new_msg", "few", "swamped",
+        "reading", "switching", "thinking", "working", "responding", "done",
+        "ai_online", "vip", "muted", "sleeping", "paused", "alert", "error", "qr"
+      ]
+    },
+    "speech": {
+      "type": "string",
+      "description": "Short chatter line shown under the face (pwnagotchi-style). The renderer may also rotate idle chatter on its own when this is empty."
+    },
+    "queue": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Advanced-mode messages waiting for an agent. Drives the QUEUE field and the resting mood bucket (0=zero, 1..N=few, >N=swamped)."
+    },
+    "last_msg": {
+      "type": "string",
+      "description": "Short preview of the last inbound message (optional)."
+    },
+    "wa_connected": {
+      "type": "boolean",
+      "description": "WhatsApp connected."
+    },
+    "show_qr": {
+      "type": "boolean",
+      "description": "Show the linking QR on screen (mood should be 'qr')."
+    },
+    "qr_data": {
+      "type": ["string", "null"],
+      "description": "QR payload when mood is 'qr'."
+    },
+    "battery": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Battery percentage, or null if unknown. The core is the ONLY writer of status.json: the power adapter writes its reading to a separate battery.json sidecar, which the core merges in here on a short heartbeat -- a stale or missing sidecar reading means null, never a placeholder. This is the LINEARIZED estimate (adapters/power/timeremain.py), not the raw voltage-curve percent -- the LiPo curve is non-linear (steep/flat/steep) and a raw-voltage percent looks jumpy even when accurate; see 'voltage' for the untouched real reading."
+    },
+    "voltage": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "Real battery cell voltage in millivolts, or null if unknown. Same battery.json sidecar merge as 'battery' -- a stale/missing reading means null, never a placeholder."
+    },
+    "charging": {
+      "type": "boolean",
+      "description": "The power adapter's adaptive estimator (adapters/power/timeremain.py) inferred the battery is charging -- either the cell voltage is rising or the level has sat pinned at 100% for a while. Drives the charging-bolt battery icon."
+    },
+    "time_remaining": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "Adaptive estimate of battery minutes remaining, or null if unknown. Starts theoretical (capacity/draw) and is replaced by the real learned discharge rate once enough samples exist -- see adapters/power/timeremain.py. While charging, this is the estimate IF unplugged right now, not a live countdown."
+    },
+    "cpu": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "maximum": 100,
+      "description": "1-minute load average scaled to 0..100 by core count, or null if unavailable (non-Linux dev host). Core-read from /proc/loadavg."
+    },
+    "ram": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Used-RAM percent ((MemTotal-MemAvailable)/MemTotal), or null if unavailable. Core-read from /proc/meminfo."
+    },
+    "wifi": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "maximum": 4,
+      "description": "WiFi signal level 0..4 (0 = not connected), or null if unknown."
+    },
+    "ip": {
+      "type": "string",
+      "description": "Current LAN IP, or '' when offline."
+    },
+    "hostname": {
+      "type": "string",
+      "description": "mDNS/host name shown in the footer, e.g. 'pimywa.local'."
+    },
+    "ssid": {
+      "type": "string",
+      "description": "Current WiFi network name, or '' when unknown/not connected. Read via a generic Linux interface (`iw dev <iface> link`), never a vendor-specific lib."
+    },
+    "own_jid": {
+      "type": ["string", "null"],
+      "description": "Own WhatsApp JID when connected."
+    },
+    "agent_connected": {
+      "type": "boolean",
+      "description": "True while at least one agent is connected over MCP. Mirrors agents > 0 — kept for older readers."
+    },
+    "agents": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Count of MCP sessions currently considered connected (a tool call within the last AgentIdle window). 0 means no agent connected."
+    },
+    "uptime": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Seconds since this core process started (not OS uptime)."
+    },
+    "reconnect_paused": {
+      "type": "boolean",
+      "description": "The anti-ban governor paused reconnection (mood is 'paused' while this is true -- ban-risk signal, distinct from peaceful 'sleeping')."
+    },
+    "muted": {
+      "type": "boolean",
+      "description": "The anti-ban mute/kill switch is on -- send_message is rejected while true. Mirrors the governor's kill switch into this contract (renamed from the earlier internal \"killed\" naming -- \"mudo esta bien\")."
+    },
+    "sent": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "All-time count of successfully sent outbound messages (pwnagotchi-style SENT n footer). Derived from message history, not a separately incremented counter."
+    },
+    "face": {
+      "type": ["string", "null"],
+      "description": "The literal kaomoji string the display adapter's renderer drew for the current mood/animation frame, e.g. '(◕‿◕)'. The core is the ONLY writer of status.json: the display adapter writes its choice to a face.json sidecar, which the core merges in here on a short heartbeat -- a stale or missing sidecar reading means null, never a placeholder. Lets the dashboard mirror the e-paper's live face without duplicating the display adapter's face-selection catalog. null when the display adapter isn't running/hasn't rendered yet, or the current mood is 'qr' (no kaomoji face is drawn then)."
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC RFC3339 timestamp of the last update."
+    }
+  }
+}

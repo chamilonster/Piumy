@@ -1,0 +1,11 @@
+{
+  "state": "responding",
+  "last_msg": "hi! how can I help",
+  "wa_connected": true,
+  "show_qr": false,
+  "qr_data": null,
+  "battery": 78,
+  "own_jid": null,
+  "reconnect_paused": false,
+  "updated_at": "2026-06-30T12:00:00Z"
+}

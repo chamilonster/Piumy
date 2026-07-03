@@ -1,0 +1,49 @@
+# git tracks code only; operational state and secrets stay out.
+
+# --- Local tooling state (not code) ---
+.clevercoder/
+.claude/
+.mcp.json
+
+# --- Secrets — NEVER to GitHub ---
+.env
+.env.*
+credentials/
+secrets/
+*.key
+*.pem
+*.pfx
+
+# --- Runtime config that may contain real phone numbers ---
+router.json
+
+# --- WhatsApp session + SQLite databases — NEVER to GitHub ---
+# (losing/leaking the session = re-scan the QR = ban risk; back it up separately and encrypted)
+# NOTE: do NOT add a bare `store/` — it matches the Go package core/internal/store/.
+# The DBs are already covered by the *.db globs below.
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+
+# --- Runtime-generated artifacts ---
+status.json
+*.tmp
+display.png
+
+# --- Go ---
+/core/pimywa
+*.exe
+*.test
+*.out
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# --- Misc ---
+.vs/
+*.user
+.DS_Store

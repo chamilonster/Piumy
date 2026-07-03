@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Piumy Dashboard</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--surf:#1a1d24;--bdr:#2d3142;
+  --txt:#e8eaed;--dim:#9aa0ac;
+  --grn:#4ade80;--yel:#facc15;--red:#f87171;--blu:#60a5fa;
+}
+body{background:var(--bg);color:var(--txt);font:15px/1.5 system-ui,sans-serif}
+/* nav — subtle depth so it reads as "above" the page, not a flat bar */
+nav{background:var(--surf);border-bottom:1px solid var(--bdr);
+    padding:.6rem 1.2rem;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;
+    box-shadow:0 2px 10px rgba(0,0,0,.3);position:sticky;top:0;z-index:10}
+nav h1{font-size:1.05rem;font-weight:700;white-space:nowrap}
+.push{margin-left:auto}
+a.logout{color:var(--dim);font-size:.83rem;text-decoration:none}
+a.logout:hover{color:var(--txt)}
+/* layout */
+main{max-width:920px;margin:1.2rem auto;padding:0 1rem;display:grid;gap:.9rem}
+section{background:var(--surf);border:1px solid var(--bdr);border-radius:10px;padding:1rem;
+         transition:border-color .15s ease,box-shadow .15s ease}
+section:hover{border-color:#3a4056;box-shadow:0 4px 16px rgba(0,0,0,.25)}
+h2{font-size:.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;
+   color:var(--dim);margin-bottom:.7rem}
+/* badges */
+.badge{padding:.18rem .5rem;border-radius:4px;font-size:.78rem;font-weight:600;display:inline-block}
+.grn-b{background:#14532d;color:var(--grn)}
+.red-b{background:#450a0a;color:var(--red)}
+.yel-b{background:#422006;color:var(--yel)}
+.dim-b{background:#1e2130;color:var(--dim)}
+.blu-b{background:#1e3a5f;color:var(--blu)}
+/* stat grid */
+.stats{display:flex;flex-wrap:wrap;gap:.5rem 1.5rem}
+.stat{display:flex;flex-direction:column;gap:.1rem}
+.stat label{font-size:.73rem;color:var(--dim)}
+.stat span{font-weight:600;font-size:.92rem}
+/* buttons */
+button,.btn{padding:.45rem 1rem;background:var(--grn);color:#0f1117;border:none;
+            border-radius:6px;font-size:.88rem;font-weight:700;cursor:pointer;
+            transition:filter .12s ease,transform .05s ease}
+button:hover,.btn:hover{filter:brightness(1.1)}
+button:active,.btn:active{transform:translateY(1px)}
+/* live face panel — mirrors the e-paper's kaomoji */
+.face-panel{display:flex;align-items:center;gap:1rem;margin-bottom:.9rem;
+            padding:.6rem .9rem;background:var(--bg);border:1px solid var(--bdr);
+            border-radius:8px}
+.face-glyph{font-size:2.1rem;line-height:1;min-width:3.6rem;text-align:center;
+            color:var(--grn);flex-shrink:0}
+.face-info{min-width:0}
+.face-mood{font-size:.95rem;font-weight:700;text-transform:capitalize}
+.face-speech{font-size:.82rem;color:var(--dim);font-style:italic;margin-top:.15rem;
+             overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* battery trace chart */
+.bat-svg{width:100%;height:160px;background:var(--bg);border:1px solid var(--bdr);
+         border-radius:8px;display:block}
+.dim-note{font-size:.82rem;color:var(--dim);margin-top:.4rem}
+.bat-legend{display:flex;gap:1.1rem;flex-wrap:wrap;margin-top:.5rem;font-size:.78rem;color:var(--dim)}
+.bat-sw{display:inline-block;width:.7rem;height:.7rem;border-radius:2px;margin-right:.35rem;vertical-align:middle}
+/* kill switch */
+#kill-btn{padding:.65rem 1.6rem;font-size:.95rem}
+#kill-btn.active{background:#450a0a;color:var(--red);border:1px solid var(--red)}
+#kill-btn.inactive{background:var(--grn);color:#0f1117}
+/* chat list / queue list shared */
+.chat-item{padding:.45rem .2rem;border-bottom:1px solid var(--bdr);
+           display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.chat-item:last-child{border-bottom:none}
+.chat-main{flex:1;min-width:0;max-width:220px;display:flex;flex-direction:column;overflow:hidden}
+.chat-name{font-size:.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chat-desc{font-size:.72rem;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chat-link{font-size:.72rem;color:var(--dim);text-decoration:none;border:1px solid var(--bdr);
+           border-radius:4px;padding:.1rem .35rem}
+.chat-link:hover{color:var(--grn);border-color:var(--grn)}
+.mode-btn{font-size:.73rem;padding:.18rem .5rem;border-radius:4px;cursor:pointer;
+          border:1px solid var(--bdr);background:transparent;color:var(--dim)}
+.mode-btn:hover{border-color:var(--grn);color:var(--grn)}
+/* send form */
+.send-row{display:flex;gap:.5rem;margin-top:.75rem;flex-wrap:wrap}
+select.chat-sel,input.msg-in{padding:.45rem .7rem;background:var(--bg);
+  border:1px solid var(--bdr);border-radius:6px;color:var(--txt);font-size:.88rem}
+select.chat-sel{min-width:140px}
+input.msg-in{flex:1;min-width:160px}
+select.chat-sel:focus,input.msg-in:focus{outline:none;border-color:var(--grn)}
+.send-result{font-size:.82rem;margin-top:.35rem;min-height:1.2rem}
+/* settings (0753) */
+.settings-check{display:flex;align-items:center;gap:.5rem;font-size:.85rem;cursor:pointer}
+.settings-check input{width:auto;accent-color:var(--grn)}
+.settings-grid{display:flex;flex-wrap:wrap;gap:.6rem 1.2rem}
+.settings-row{display:flex;flex-direction:column;gap:.2rem}
+.settings-row label{font-size:.78rem;color:var(--dim)}
+.settings-num{width:6rem;padding:.35rem .5rem;background:var(--bg);
+  border:1px solid var(--bdr);border-radius:6px;color:var(--txt);font-size:.85rem}
+.settings-num:focus{outline:none;border-color:var(--grn)}
+.settings-hint{font-size:.7rem;color:var(--dim);font-weight:400}
+/* rules by tier (1959) */
+.rules-txt{width:100%;min-height:4.5rem;padding:.45rem .7rem;background:var(--bg);
+  border:1px solid var(--bdr);border-radius:6px;color:var(--txt);font-size:.85rem;
+  font-family:inherit;resize:vertical;box-sizing:border-box}
+.rules-txt:focus{outline:none;border-color:var(--grn)}
+/* qr */
+#qr-img{width:min(260px,80vw);height:auto;border:6px solid white;
+        border-radius:6px;display:block;margin:.5rem 0}
+/* router section */
+.warn-banner{background:#422006;border:1px solid var(--yel);border-radius:6px;
+             padding:.5rem .75rem;font-size:.83rem;color:var(--yel);margin-bottom:.6rem}
+.rt-jid-row{padding:.35rem .2rem;border-bottom:1px solid var(--bdr);
+            display:flex;align-items:center;gap:.5rem}
+.rt-jid-row:last-child{border-bottom:none}
+.rt-jid{flex:1;font-size:.83rem;font-family:monospace;overflow:hidden;
+        text-overflow:ellipsis;white-space:nowrap}
+</style>
+</head>
+<body>
+<nav>
+  <h1>🦉 Piumy</h1>
+  <span id="nav-mood" class="badge dim-b">—</span>
+  <span id="nav-wa"   class="badge dim-b">WA: —</span>
+  <span id="nav-queue" class="badge dim-b" title="Queue depth">Q: —</span>
+  <span class="push"><a class="logout" href="/logout">Logout</a></span>
+</nav>
+
+<main>
+
+<!-- ── Status ──────────────────────────────────────────────────── -->
+<section>
+  <h2>Status</h2>
+
+  <!-- Live kaomoji face — mirrors the SAME face the
+       e-paper panel is drawing right now (status.json's "face" field, via
+       the display adapter's face.json sidecar). Refreshes on the existing
+       3s status poll, same cadence as everything else here. -->
+  <div class="face-panel">
+    <div id="s-face" class="face-glyph">—</div>
+    <div class="face-info">
+      <div id="s-face-mood" class="face-mood">—</div>
+      <div id="s-speech" class="face-speech"></div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><label>Hostname</label><span id="s-host">—</span></div>
+    <div class="stat"><label>IP</label><span id="s-ip">—</span></div>
+    <div class="stat"><label>Mood</label><span id="s-mood">—</span></div>
+    <div class="stat"><label>WhatsApp</label><span id="s-wa">—</span></div>
+    <div class="stat"><label>Queue</label><span id="s-queue">—</span></div>
+    <div class="stat"><label>WiFi</label><span id="s-wifi">—</span></div>
+    <div class="stat"><label>Battery</label><span id="s-bat">—</span></div>
+    <div class="stat"><label>Agent</label><span id="s-agent">—</span></div>
+    <div class="stat"><label>JID</label><span id="s-jid" style="font-size:.8rem">—</span></div>
+    <div class="stat"><label>Updated</label><span id="s-updated" style="font-size:.8rem">—</span></div>
+  </div>
+</section>
+
+<!-- ── Battery: current reading (rides GET
+     /api/status — same battery/voltage/charging/time_remaining fields the
+     e-paper panel uses) + the discharge/charge trace from GET
+     /api/battery/log, drawn as a plain inline SVG line (no chart lib —
+     dashboard is go:embed, zero external deps). ────────────────────── -->
+<section>
+  <h2>🔋 Battery</h2>
+  <div class="stats">
+    <div class="stat"><label>Level</label><span id="bat-pct">—</span></div>
+    <div class="stat"><label>Voltage</label><span id="bat-volt">—</span></div>
+    <div class="stat"><label>Time remaining</label><span id="bat-time">—</span></div>
+    <div class="stat"><label>Status</label><span id="bat-charging" class="badge dim-b">—</span></div>
+  </div>
+  <div style="margin-top:.9rem">
+    <svg id="bat-chart" viewBox="0 0 600 160" preserveAspectRatio="none" class="bat-svg"></svg>
+    <div id="bat-chart-empty" class="dim-note">No discharge trace yet — the log builds up over time (one sample per minute by default).</div>
+    <div id="bat-chart-legend" class="bat-legend" style="display:none">
+      <span><i class="bat-sw" style="background:var(--dim)"></i>raw curve</span>
+      <span><i class="bat-sw" style="background:var(--grn)"></i>linearized (smoothed)</span>
+      <span><i class="bat-sw" style="background:var(--yel);opacity:.5"></i>charging</span>
+    </div>
+  </div>
+</section>
+
+<!-- ── WhatsApp Gateway ─────────────────────────────────────────── -->
+<section>
+  <h2>WhatsApp</h2>
+  <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;margin-bottom:.55rem">
+    <span id="gw-status" class="badge dim-b">—</span>
+    <button id="gw-link-btn" onclick="gwAction('link')">Link WhatsApp</button>
+    <button id="gw-disc-btn" onclick="gwAction('disconnect')"
+            style="background:transparent;color:var(--red);border:1px solid var(--red)">Disconnect</button>
+  </div>
+  <div id="gw-note" style="font-size:.83rem;color:var(--dim);min-height:1.2rem"></div>
+  <!-- Resume button — shown only when reconnect_paused=true -->
+  <div id="gw-resume" style="display:none;margin-top:.6rem;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
+    <button onclick="resumeConnection()"
+            style="background:var(--yel);color:#0f1117">Resume connection</button>
+    <span style="font-size:.83rem;color:var(--yel)">Reconnect is paused (anti-ban threshold reached)</span>
+  </div>
+</section>
+
+<!-- ── QR (hidden unless mood=qr / show_qr=true) ───────────────── -->
+<section id="qr-section" style="display:none">
+  <h2>📱 Link WhatsApp — scan with your phone</h2>
+  <p style="color:var(--dim);font-size:.85rem;margin-bottom:.6rem">
+    WhatsApp → Settings → Linked Devices → Link a Device
+  </p>
+  <img id="qr-img" src="" alt="QR code loading…">
+  <p style="font-size:.78rem;color:var(--dim);margin-top:.3rem">Auto-refreshes every 8 s</p>
+  <p style="font-size:.82rem;color:var(--yel);margin-top:.35rem">
+    Also showing on the e-paper panel — scan within 3 min.
+  </p>
+</section>
+
+<!-- ── Mute (renamed from "Kill Switch" —
+     "Kill viene de matar... mudo esta bien") ────────── -->
+<section>
+  <h2>🔇 Anti-Ban Mute</h2>
+  <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+    <button id="kill-btn" class="inactive" onclick="toggleKill()">Loading…</button>
+    <span id="kill-desc" style="color:var(--dim);font-size:.88rem"></span>
+  </div>
+  <div id="reconnect-warn" style="color:var(--yel);font-size:.85rem;margin-top:.4rem"></div>
+</section>
+
+<!-- ── Settings (runtime, 0753) ───────────────────────────────── -->
+<section>
+  <h2>⚙ Settings</h2>
+
+  <h3 style="font-size:.9rem;margin:.2rem 0 .5rem">Media downloads</h3>
+  <div style="display:flex;flex-direction:column;gap:.35rem;margin-bottom:.8rem">
+    <label class="settings-check"><input type="checkbox" id="set-skip-video-group">Don't download videos from groups</label>
+    <label class="settings-check"><input type="checkbox" id="set-skip-video-chat">Don't download videos from 1-1 chats</label>
+    <label class="settings-check"><input type="checkbox" id="set-skip-photo-group">Don't download photos from groups</label>
+    <label class="settings-check"><input type="checkbox" id="set-skip-photo-chat">Don't download photos from 1-1 chats</label>
+  </div>
+  <div class="settings-row" style="margin-bottom:.8rem">
+    <label>Media retention (MB) <span id="set-media-mb-floor" class="settings-hint"></span></label>
+    <input type="number" step="1" id="set-media-mb" class="settings-num">
+  </div>
+
+  <h3 style="font-size:.9rem;margin:.6rem 0 .5rem">Delay windows (seconds) <span class="settings-hint">— can only go slower, never below the floor shown</span></h3>
+  <div class="settings-grid" style="margin-bottom:.8rem">
+    <div class="settings-row"><label>Dispatch min <span id="set-dispatch-min-floor" class="settings-hint"></span></label><input type="number" step="0.1" id="set-dispatch-min" class="settings-num"></div>
+    <div class="settings-row"><label>Dispatch max</label><input type="number" step="0.1" id="set-dispatch-max" class="settings-num"></div>
+    <div class="settings-row"><label>Read min <span id="set-read-min-floor" class="settings-hint"></span></label><input type="number" step="0.1" id="set-read-min" class="settings-num"></div>
+    <div class="settings-row"><label>Read max</label><input type="number" step="0.1" id="set-read-max" class="settings-num"></div>
+    <div class="settings-row"><label>Action min <span id="set-action-min-floor" class="settings-hint"></span></label><input type="number" step="0.1" id="set-action-min" class="settings-num"></div>
+    <div class="settings-row"><label>Action max</label><input type="number" step="0.1" id="set-action-max" class="settings-num"></div>
+  </div>
+
+  <h3 style="font-size:.9rem;margin:.6rem 0 .5rem">Rate limits <span class="settings-hint">— can only go lower, never above the ceiling shown</span></h3>
+  <div class="settings-grid">
+    <div class="settings-row"><label>Per minute <span id="set-rate-min-ceil" class="settings-hint"></span></label><input type="number" step="1" id="set-rate-per-min" class="settings-num"></div>
+    <div class="settings-row"><label>Per day <span id="set-rate-day-ceil" class="settings-hint"></span></label><input type="number" step="1" id="set-rate-per-day" class="settings-num"></div>
+  </div>
+
+  <button onclick="saveSettings()" style="margin-top:.9rem">Save settings</button>
+  <div id="settings-result" class="send-result"></div>
+</section>
+
+<!-- ── MCP anti-flood ───────────────────────────────── -->
+<section>
+  <h2>🛡 MCP anti-flood</h2>
+  <p style="font-size:.78rem;color:var(--dim);margin-bottom:.6rem">
+    Limits how fast a connected AI agent can call MCP tools — separate from the
+    WhatsApp send rate limits above. Identified per connection (MCP session), so
+    one flooding agent never throttles the others.
+  </p>
+  <div class="settings-grid" style="margin-bottom:.8rem">
+    <div class="settings-row"><label>General calls/min <span id="mg-rate-hint" class="settings-hint"></span></label><input type="number" step="1" id="mg-rate" class="settings-num"></div>
+    <div class="settings-row"><label>send_message/escalate per min <span id="mg-emit-hint" class="settings-hint"></span></label><input type="number" step="1" id="mg-emit-rate" class="settings-num"></div>
+    <div class="settings-row"><label>Block after N throttles <span id="mg-threshold-hint" class="settings-hint"></span></label><input type="number" step="1" id="mg-threshold" class="settings-num"></div>
+    <div class="settings-row"><label>Block cooldown (seconds) <span id="mg-cooldown-hint" class="settings-hint"></span></label><input type="number" step="1" id="mg-cooldown" class="settings-num"></div>
+  </div>
+  <button onclick="saveMCPGuard()">Save anti-flood limits</button>
+  <div id="mg-result" class="send-result"></div>
+
+  <h3 style="font-size:.9rem;margin:.9rem 0 .5rem">Tracked clients</h3>
+  <div id="mg-clients"><span style="color:var(--dim);font-size:.85rem">Loading…</span></div>
+</section>
+
+<!-- ── Chats ──────────────────────────────────────────────────── -->
+<section>
+  <h2>Chats</h2>
+  <div id="chat-list"><span style="color:var(--dim)">Loading…</span></div>
+
+  <div class="send-row">
+    <select id="send-chat" class="chat-sel"><option value="">— pick chat —</option></select>
+    <input id="send-msg" class="msg-in" type="text" placeholder="Message…"
+           onkeydown="if(event.key==='Enter')sendMsg()">
+    <button onclick="sendMsg()">Send</button>
+  </div>
+  <div id="send-result" class="send-result"></div>
+</section>
+
+<!-- ── Queue (Advanced) ───────────────────────────────────────── -->
+<section>
+  <h2>Queue (Advanced)</h2>
+  <div id="queue-list"><span style="color:var(--dim)">Loading…</span></div>
+</section>
+
+<!-- ── Router / Whitelist ─────────────────────────────────────── -->
+<section>
+  <h2>Router / Whitelist</h2>
+  <div id="rt-allowall-warn" class="warn-banner" style="display:none">
+    ⚠ Allow all is ON — any number can send messages. Whitelist filter is disabled. Ban risk.
+  </div>
+  <div style="margin-bottom:.75rem">
+    <label style="display:flex;align-items:center;gap:.5rem;font-size:.85rem;cursor:pointer">
+      <input type="checkbox" id="rt-allowall" onchange="toggleAllowAll(this.checked)"
+             style="width:auto;accent-color:var(--yel)">
+      Allow all incoming (risky — disables whitelist; anyone can trigger the bot)
+    </label>
+  </div>
+  <p style="font-size:.78rem;color:var(--dim);margin-bottom:.6rem">
+    Whitelisted JIDs — only these can send messages when allow-all is off:
+  </p>
+  <div id="rt-whitelist" style="margin-bottom:.6rem">
+    <span style="color:var(--dim);font-size:.85rem">Loading…</span>
+  </div>
+  <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.4rem">
+    <input id="rt-add-jid" class="msg-in" type="text"
+           placeholder="JID e.g. 1234567890@s.whatsapp.net"
+           style="flex:1;min-width:200px"
+           onkeydown="if(event.key==='Enter')addWhitelist()">
+    <button onclick="addWhitelist()">Add</button>
+  </div>
+  <div id="rt-result" class="send-result"></div>
+</section>
+
+<!-- ── Rules by tier (1959) ───────────────────────────────────── -->
+<section>
+  <h2>Rules by tier</h2>
+  <p style="font-size:.78rem;color:var(--dim);margin-bottom:.6rem">
+    A chat with no particular rules of its own inherits from these, in order:
+    its type (individual/group) → the global default. The AI never acts on a
+    chat with no rules at any tier.
+  </p>
+
+  <div class="settings-row" style="margin-bottom:.8rem">
+    <label>Individual chats (default for 1-1 contacts)</label>
+    <textarea id="ru-individual" class="rules-txt" placeholder="e.g. reply normally, be helpful and concise"></textarea>
+    <button onclick="saveTypeRules('individual')" style="margin-top:.35rem;align-self:flex-start">Save</button>
+  </div>
+
+  <div class="settings-row" style="margin-bottom:.8rem">
+    <label>Groups (default for WhatsApp groups)</label>
+    <textarea id="ru-group" class="rules-txt" placeholder="e.g. only reply when directly asked"></textarea>
+    <button onclick="saveTypeRules('group')" style="margin-top:.35rem;align-self:flex-start">Save</button>
+  </div>
+
+  <div class="settings-row">
+    <label>Global default (catch-all when nothing else applies)</label>
+    <textarea id="ru-default" class="rules-txt" placeholder="e.g. reply politely, escalate anything unclear to the owner"></textarea>
+    <button onclick="saveDefaultRules()" style="margin-top:.35rem;align-self:flex-start">Save</button>
+  </div>
+
+  <div id="ru-result" class="send-result"></div>
+</section>
+
+<!-- ── Health ─────────────────────────────────────────────────── -->
+<section>
+  <h2>Health</h2>
+  <div class="stats">
+    <div class="stat"><label>Reconnect</label><span id="h-reconnect">—</span></div>
+    <div class="stat"><label>Agent</label><span id="h-agent">—</span></div>
+    <div class="stat"><label>WA Connected</label><span id="h-wa">—</span></div>
+    <div class="stat"><label>Queue depth</label><span id="h-queue">—</span></div>
+  </div>
+  <div id="h-adapters" style="font-size:.82rem;color:var(--dim);margin-top:.6rem">
+    Adapters: —
+  </div>
+
+  <h3 style="font-size:.9rem;margin:.9rem 0 .5rem">Session backup</h3>
+  <div class="stats">
+    <div class="stat"><label>Status</label><span id="bk-enabled">—</span></div>
+    <div class="stat"><label>Last backup</label><span id="bk-last">—</span></div>
+    <div class="stat"><label>Retained</label><span id="bk-count">—</span></div>
+  </div>
+  <div style="display:flex;align-items:center;gap:.75rem;margin-top:.6rem">
+    <button onclick="backupNow()">Backup now</button>
+    <span id="bk-result" class="send-result" style="margin-top:0"></span>
+  </div>
+</section>
+
+</main>
+
+<script>
+'use strict';
+
+// ── State ─────────────────────────────────────────────────────────
+let g_killOn    = false;
+let g_chats     = [];
+let g_qrTimer   = null;
+let g_gwRunning = false; // cached from /api/gateway poll
+
+// ── Utilities ─────────────────────────────────────────────────────
+function $id(id) { return document.getElementById(id); }
+
+function setText(id, v) { const el = $id(id); if (el) el.textContent = v; }
+
+function setBadge(id, text, cls) {
+  const el = $id(id);
+  if (!el) return;
+  el.textContent = text;
+  el.className = 'badge ' + (cls || 'dim-b');
+}
+
+function esc(s) {
+  return String(s ?? '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// wifi is 0..4 (status.schema.json), NOT a percentage -- was previously
+// thresholded as if it were 0..100 (v>=75/50/25), which made every REAL
+// reading (0-4) render as the lowest bar tier with a nonsense "N%" suffix.
+function fmtWifi(v) {
+  if (v == null) return '—';
+  if (v <= 0) return '▁▁▁▁ off';
+  const glyphs = ['▂', '▄', '▆', '█'];
+  const bars = glyphs.map((g, i) => i < v ? g : '░').join('');
+  return bars + ' ' + v + '/4';
+}
+
+// ── API helper ────────────────────────────────────────────────────
+async function api(method, path, body) {
+  const opts = { method, headers: {} };
+  if (body !== undefined) {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(body);
+  }
+  let r;
+  try { r = await fetch(path, opts); }
+  catch (e) { console.warn('fetch', path, e); return null; }
+  if (r.status === 401) { location.href = '/login'; return null; }
+  return r;
+}
+
+// ── Status (3 s poll) ─────────────────────────────────────────────
+async function fetchStatus() {
+  const r = await api('GET', '/api/status');
+  if (!r || !r.ok) return;
+  const s = await r.json();
+  applyStatus(s);
+  // Refresh queue on every status poll (same cadence).
+  fetchQueue();
+}
+
+function waLabel(s) {
+  if (s.wa_connected) return 'online';
+  if (s.show_qr)      return 'scan QR';
+  if (s.reconnect_paused) return 'paused';
+  return 'offline';
+}
+
+function moodBadgeCls(mood) {
+  const GRN = ['new_msg','ai_online','vip','working','responding','thinking'];
+  const YEL = ['swamped','qr','alert'];
+  const RED = ['error'];
+  if (GRN.includes(mood)) return 'grn-b';
+  if (YEL.includes(mood)) return 'yel-b';
+  if (RED.includes(mood)) return 'red-b';
+  return 'dim-b';
+}
+
+function applyStatus(s) {
+  // nav bar
+  setBadge('nav-mood',  s.mood || '—', moodBadgeCls(s.mood));
+  setBadge('nav-wa',    'WA: ' + waLabel(s), s.wa_connected ? 'grn-b' : (s.show_qr ? 'yel-b' : 'red-b'));
+  setBadge('nav-queue', 'Q: ' + (s.queue ?? '—'), s.queue > 0 ? 'yel-b' : 'dim-b');
+
+  // status grid
+  setText('s-host',    s.hostname || '—');
+  setText('s-ip',      s.ip       || '—');
+  setText('s-mood',    s.mood     || '—');
+  setText('s-wa',      waLabel(s));
+  setText('s-queue',   String(s.queue ?? '—'));
+  setText('s-wifi',    fmtWifi(s.wifi));
+  setText('s-bat',     s.battery != null ? s.battery + '%' : '—');
+  setText('s-agent',   s.agent_connected ? 'connected' : 'offline');
+  setText('s-jid',     s.own_jid  || '—');
+  setText('s-updated', s.updated_at ? new Date(s.updated_at).toLocaleTimeString() : '—');
+  $id('s-speech').textContent = s.speech ? '"' + s.speech + '"' : '';
+
+  // Live face — s.face is null when the display
+  // adapter hasn't rendered yet or mood is "qr" (no kaomoji face then).
+  setText('s-face',      s.face || '—');
+  setText('s-face-mood', s.mood || '—');
+
+  applyBattery(s);
+
+  // health panel
+  const pauseTxt = s.reconnect_paused ? '⚠ paused' : 'normal';
+  setText('h-reconnect', pauseTxt);
+  $id('h-reconnect').style.color = s.reconnect_paused ? 'var(--yel)' : '';
+  setText('h-agent', s.agent_connected ? 'connected' : 'offline');
+  setText('h-wa',    s.wa_connected ? 'yes' : 'no');
+  setText('h-queue', String(s.queue ?? '—'));
+
+  // Health adapters line (replaces static SSH hint)
+  const gwLabel  = g_gwRunning ? 'running' : 'stopped';
+  const agLabel  = s.agent_connected ? 'connected' : 'offline';
+  setText('h-adapters', 'Adapters — gateway: ' + gwLabel + '  ·  agent: ' + agLabel + '  ·  display: e-paper');
+
+  // Kill switch reconnect warning
+  $id('reconnect-warn').textContent = s.reconnect_paused
+    ? '⚠ Reconnect is paused — WhatsApp may be disconnected.' : '';
+
+  // Resume button in WhatsApp section
+  const resumeEl = $id('gw-resume');
+  if (resumeEl) resumeEl.style.display = s.reconnect_paused ? '' : 'none';
+
+  // QR section
+  const inQR = !!(s.show_qr || s.mood === 'qr');
+  const qrSec = $id('qr-section');
+  if (inQR) {
+    qrSec.style.display = '';
+    if (!g_qrTimer) {
+      refreshQR();
+      g_qrTimer = setInterval(refreshQR, 8000);
+    }
+  } else {
+    qrSec.style.display = 'none';
+    if (g_qrTimer) { clearInterval(g_qrTimer); g_qrTimer = null; }
+  }
+
+  // Refresh gateway section using status data merged with the cached running flag.
+  applyGateway({
+    running:      g_gwRunning,
+    wa_connected: s.wa_connected,
+    mood:         s.mood,
+    show_qr:      s.show_qr,
+    own_jid:      s.own_jid,
+  });
+}
+
+// ── Battery ──────────────────────────────────
+// Current reading rides GET /api/status (called from applyStatus above);
+// the trace chart is a separate slower poll against GET /api/battery/log.
+function fmtMinutes(m) {
+  if (m == null) return '—';
+  if (m < 60) return Math.round(m) + 'm';
+  const h = Math.floor(m / 60), mm = Math.round(m % 60);
+  return h + 'h ' + mm + 'm';
+}
+
+function applyBattery(s) {
+  setText('bat-pct',  s.battery != null ? s.battery + '%' : '—');
+  setText('bat-volt', s.voltage != null ? (s.voltage / 1000).toFixed(2) + 'V' : '—');
+  setText('bat-time', fmtMinutes(s.time_remaining));
+  if (s.battery == null) {
+    setBadge('bat-charging', '—', 'dim-b');
+  } else if (s.charging) {
+    setBadge('bat-charging', '⚡ charging', 'grn-b');
+  } else {
+    setBadge('bat-charging', 'discharging', 'dim-b');
+  }
+}
+
+async function fetchBatteryLog() {
+  const r = await api('GET', '/api/battery/log?limit=300');
+  if (!r || !r.ok) return;
+  renderBatteryChart(await r.json());
+}
+
+// renderBatteryChart draws the discharge/charge trace as a plain SVG
+// polyline (no chart library — dashboard is go:embed, zero external deps,
+// see package doc). raw_pct (dim) vs linearized_pct (green, the "smoothed"
+// value the battery bar itself shows) with charging spans shaded — same
+// three signals as the evidence plot generated for this contract.
+function renderBatteryChart(rows) {
+  const svg = $id('bat-chart');
+  const empty = $id('bat-chart-empty');
+  const legend = $id('bat-chart-legend');
+  if (!Array.isArray(rows) || rows.length < 2) {
+    svg.innerHTML = '';
+    empty.style.display = '';
+    legend.style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  legend.style.display = '';
+
+  const W = 600, H = 160, PAD = 6;
+  const t0 = rows[0].ts, t1 = rows[rows.length - 1].ts;
+  const span = Math.max(1, t1 - t0);
+  const x = t => PAD + (t - t0) / span * (W - 2 * PAD);
+  const y = pct => H - PAD - Math.max(0, Math.min(100, pct)) / 100 * (H - 2 * PAD);
+
+  // Charging spans shaded first (drawn behind the trace lines).
+  let bg = '';
+  let spanStart = null;
+  rows.forEach(r => {
+    if (r.charging && spanStart == null) spanStart = r.ts;
+    if (!r.charging && spanStart != null) {
+      bg += `<rect x="${x(spanStart)}" y="0" width="${Math.max(0, x(r.ts) - x(spanStart))}" height="${H}" fill="var(--yel)" opacity="0.12"/>`;
+      spanStart = null;
+    }
+  });
+  if (spanStart != null) {
+    bg += `<rect x="${x(spanStart)}" y="0" width="${Math.max(0, x(t1) - x(spanStart))}" height="${H}" fill="var(--yel)" opacity="0.12"/>`;
+  }
+
+  const rawPts = rows.map(r => x(r.ts) + ',' + y(r.raw_pct)).join(' ');
+  const linPts = rows.map(r => x(r.ts) + ',' + y(r.linearized_pct)).join(' ');
+
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = bg +
+    `<polyline points="${esc(rawPts)}" fill="none" stroke="var(--dim)" stroke-width="1.5" opacity="0.65"/>` +
+    `<polyline points="${esc(linPts)}" fill="none" stroke="var(--grn)" stroke-width="2"/>`;
+}
+
+// ── QR image (8 s refresh while in QR mode) ───────────────────────
+function refreshQR() {
+  // Cache-bust so the browser always re-fetches.
+  $id('qr-img').src = '/api/qr.svg?' + Date.now();
+}
+
+// ── Kill switch (5 s poll + toggle) ──────────────────────────────
+async function fetchKill() {
+  const r = await api('GET', '/api/killswitch');
+  if (!r || !r.ok) return;
+  const d = await r.json();
+  g_killOn = !!d.on;
+  renderKill(g_killOn);
+}
+
+function renderKill(on) {
+  const btn  = $id('kill-btn');
+  const desc = $id('kill-desc');
+  if (on) {
+    btn.textContent = '🔴 Muted — sending blocked';
+    btn.className = 'active';
+    desc.textContent = 'No messages will leave until you unmute.';
+    desc.style.color = 'var(--red)';
+  } else {
+    btn.textContent = '✅ Not muted — sending active';
+    btn.className = 'inactive';
+    desc.textContent = 'Click to immediately mute (block all outgoing messages).';
+    desc.style.color = 'var(--dim)';
+  }
+}
+
+async function toggleKill() {
+  const r = await api('POST', '/api/killswitch', { on: !g_killOn });
+  if (!r || !r.ok) return;
+  const d = await r.json();
+  g_killOn = !!d.on;
+  renderKill(g_killOn);
+}
+
+// ── Chats (10 s poll) ─────────────────────────────────────────────
+async function fetchChats() {
+  const r = await api('GET', '/api/chats?limit=50');
+  if (!r || !r.ok) return;
+  const chats = await r.json();
+  g_chats = Array.isArray(chats) ? chats : [];
+  renderChats(g_chats);
+  renderChatSelect(g_chats);
+}
+
+function renderChats(chats) {
+  const el = $id('chat-list');
+  if (!chats.length) {
+    el.innerHTML = '<span style="color:var(--dim);font-size:.88rem">No chats yet.</span>';
+    return;
+  }
+  el.innerHTML = chats.map(c => {
+    const adv = c.mode === 'advanced';
+    const nextMode = adv ? 'auto' : 'advanced';
+    const modeLabel = adv ? 'adv → auto' : 'auto → adv';
+    return `<div class="chat-item">
+      <div class="chat-main">
+        <span class="chat-name" title="${esc(c.jid)}">${esc(c.name || c.jid)}</span>
+        ${c.description ? `<span class="chat-desc" title="${esc(c.description)}">${esc(c.description)}</span>` : ''}
+      </div>
+      ${c.unread ? `<span class="badge yel-b" title="Unread">${c.unread}</span>` : ''}
+      <span class="badge ${adv ? 'yel-b' : 'dim-b'}">${esc(c.mode)}</span>
+      ${c.group_invite_link ? `<a class="chat-link" href="${esc(c.group_invite_link)}" target="_blank" rel="noopener">invite</a>` : ''}
+      <button class="mode-btn" onclick="toggleMode(${JSON.stringify(c.jid)},${JSON.stringify(nextMode)})">${modeLabel}</button>
+    </div>`;
+  }).join('');
+}
+
+function renderChatSelect(chats) {
+  const sel = $id('send-chat');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— pick chat —</option>' +
+    chats.map(c => `<option value="${esc(c.jid)}"${c.jid === cur ? ' selected' : ''}>${esc(c.name || c.jid)}</option>`).join('');
+}
+
+async function toggleMode(jid, newMode) {
+  const r = await api('POST', '/api/mode', { chat: jid, mode: newMode });
+  if (r && r.ok) fetchChats();
+}
+
+async function sendMsg() {
+  const chat = $id('send-chat').value;
+  const msg  = $id('send-msg').value.trim();
+  const res  = $id('send-result');
+  if (!chat) { res.textContent = 'Pick a chat first.'; res.style.color='var(--yel)'; return; }
+  if (!msg)  { res.textContent = 'Enter a message.';  res.style.color='var(--yel)'; return; }
+  const r = await api('POST', '/api/send', { to: chat, message: msg });
+  if (!r) return;
+  if (r.ok) {
+    res.textContent = '✓ Queued.';
+    res.style.color = 'var(--grn)';
+    $id('send-msg').value = '';
+  } else {
+    const d = await r.json().catch(() => ({}));
+    res.textContent = '✗ ' + (d.error || 'send error');
+    res.style.color = 'var(--red)';
+  }
+}
+
+// ── Gateway (poll + actions) ──────────────────────────────────────
+async function fetchGateway() {
+  const r = await api('GET', '/api/gateway');
+  if (!r || !r.ok) return;
+  const d = await r.json();
+  g_gwRunning = !!d.running;
+  applyGateway(d);
+}
+
+// applyGateway renders the WhatsApp section using data from /api/gateway.
+// Also called from applyStatus, merging g_gwRunning with status fields.
+function applyGateway(d) {
+  const note = $id('gw-note');
+  if (d.wa_connected) {
+    setBadge('gw-status', 'connected', 'grn-b');
+    note.textContent = d.own_jid ? 'Connected as ' + d.own_jid : 'Connected.';
+  } else if (d.mood === 'qr' || d.show_qr) {
+    setBadge('gw-status', 'scan QR', 'yel-b');
+    note.textContent = 'Scan the QR below — also showing on the e-paper panel.';
+  } else if (d.running) {
+    setBadge('gw-status', 'connecting…', 'yel-b');
+    note.textContent = 'Connecting to WhatsApp…';
+  } else {
+    setBadge('gw-status', 'offline', 'red-b');
+    note.textContent = 'Press "Link WhatsApp" to start pairing.';
+  }
+}
+
+async function gwAction(action) {
+  $id('gw-note').textContent = action === 'link' ? 'Starting…' : 'Stopping…';
+  const r = await api('POST', '/api/gateway', { action });
+  if (!r) return;
+  if (r.ok) {
+    const d = await r.json();
+    g_gwRunning = !!d.running;
+    applyGateway(d);
+    // Kick a fast status refresh so the QR section appears / disappears promptly.
+    setTimeout(fetchStatus, 800);
+  } else {
+    const d = await r.json().catch(() => ({}));
+    $id('gw-note').textContent = '✗ ' + (d.error || 'request failed');
+    $id('gw-note').style.color = 'var(--red)';
+  }
+}
+
+// ── Resume reconnection ───────────────────────────────────────────
+async function resumeConnection() {
+  const note = $id('gw-note');
+  note.textContent = 'Resuming…';
+  note.style.color = '';
+  const r = await api('POST', '/api/reconnect', {});
+  if (r && r.ok) {
+    note.textContent = 'Reconnecting…';
+    // Hide resume button optimistically; status poll will update it.
+    const resumeEl = $id('gw-resume');
+    if (resumeEl) resumeEl.style.display = 'none';
+    setTimeout(fetchStatus, 1000);
+    setTimeout(fetchGateway, 1000);
+  } else {
+    note.textContent = '✗ Resume failed';
+    note.style.color = 'var(--red)';
+  }
+}
+
+// ── Queue (Advanced) ──────────────────────────────────────────────
+async function fetchQueue() {
+  const r = await api('GET', '/api/queue?limit=50');
+  if (!r || !r.ok) return;
+  const msgs = await r.json();
+  renderQueue(Array.isArray(msgs) ? msgs : []);
+}
+
+function renderQueue(msgs) {
+  const el = $id('queue-list');
+  if (!el) return;
+  if (!msgs.length) {
+    el.innerHTML = '<span style="color:var(--dim);font-size:.88rem">No pending messages.</span>';
+    return;
+  }
+  el.innerHTML = msgs.map(m => {
+    const ts = m.ts ? new Date(m.ts * 1000).toLocaleTimeString() : '—';
+    const preview = (m.text || '(no text)').slice(0, 100);
+    return `<div class="chat-item">
+      <span class="chat-name" title="${esc(m.chat_jid)}">${esc(m.chat_jid)}</span>
+      <span style="flex:2;font-size:.82rem;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(preview)}</span>
+      <span style="font-size:.75rem;color:var(--dim);white-space:nowrap">${ts}</span>
+      <button class="mode-btn" onclick="markHandled(${JSON.stringify(m.chat_jid)},${JSON.stringify(m.id)})">handled</button>
+    </div>`;
+  }).join('');
+}
+
+async function markHandled(chat, id) {
+  const r = await api('POST', '/api/handled', { chat, id });
+  if (r && r.ok) fetchQueue();
+}
+
+// ── Router / Whitelist ────────────────────────────────────────────
+async function fetchRouter() {
+  const r = await api('GET', '/api/router');
+  if (!r || !r.ok) return;
+  const cfg = await r.json();
+  applyRouter(cfg);
+}
+
+function applyRouter(cfg) {
+  // Allow-all checkbox + warning banner
+  const cb = $id('rt-allowall');
+  if (cb) cb.checked = !!cfg.allow_all;
+  const warn = $id('rt-allowall-warn');
+  if (warn) warn.style.display = cfg.allow_all ? '' : 'none';
+
+  // Whitelist list
+  const el = $id('rt-whitelist');
+  if (!el) return;
+  const wl = cfg.whitelist || [];
+  if (!wl.length) {
+    el.innerHTML = '<span style="color:var(--dim);font-size:.85rem">Whitelist is empty — all messages blocked (unless allow-all is on).</span>';
+    return;
+  }
+  el.innerHTML = wl.map(jid =>
+    `<div class="rt-jid-row">
+      <span class="rt-jid" title="${esc(jid)}">${esc(jid)}</span>
+      <button class="mode-btn" onclick="removeWhitelist(${JSON.stringify(jid)})">remove</button>
+    </div>`
+  ).join('');
+}
+
+async function addWhitelist() {
+  const jid = ($id('rt-add-jid').value || '').trim();
+  const res = $id('rt-result');
+  if (!jid) { res.textContent = 'Enter a JID.'; res.style.color = 'var(--yel)'; return; }
+  const r = await api('POST', '/api/router/whitelist', { jid, action: 'add' });
+  if (!r) return;
+  if (r.ok) {
+    const cfg = await r.json();
+    applyRouter(cfg);
+    $id('rt-add-jid').value = '';
+    res.textContent = '✓ Added ' + jid;
+    res.style.color = 'var(--grn)';
+  } else {
+    const d = await r.json().catch(() => ({}));
+    res.textContent = '✗ ' + (d.error || 'add failed');
+    res.style.color = 'var(--red)';
+  }
+}
+
+async function removeWhitelist(jid) {
+  const r = await api('POST', '/api/router/whitelist', { jid, action: 'remove' });
+  if (!r) return;
+  if (r.ok) {
+    const cfg = await r.json();
+    applyRouter(cfg);
+    const res = $id('rt-result');
+    res.textContent = 'Removed ' + jid;
+    res.style.color = 'var(--dim)';
+  }
+}
+
+async function toggleAllowAll(on) {
+  const r = await api('POST', '/api/router/allowall', { on });
+  if (!r) return;
+  if (r.ok) {
+    const cfg = await r.json();
+    applyRouter(cfg);
+    const res = $id('rt-result');
+    if (on) {
+      res.textContent = '⚠ Allow all enabled — ban risk! Any number can now trigger the bot.';
+      res.style.color = 'var(--yel)';
+    } else {
+      res.textContent = 'Whitelist-only mode re-enabled.';
+      res.style.color = 'var(--grn)';
+    }
+  } else {
+    // Revert checkbox on failure
+    const cb = $id('rt-allowall');
+    if (cb) cb.checked = !on;
+  }
+}
+
+// ── Settings (runtime, 0753) ───────────────────────────────────────
+async function fetchSettings() {
+  const r = await api('GET', '/api/settings');
+  if (!r || !r.ok) return;
+  applySettings(await r.json());
+}
+
+function applySettings(s) {
+  $id('set-skip-video-group').checked = !!s.media_skip_video_group;
+  $id('set-skip-video-chat').checked  = !!s.media_skip_video_chat;
+  $id('set-skip-photo-group').checked = !!s.media_skip_photo_group;
+  $id('set-skip-photo-chat').checked  = !!s.media_skip_photo_chat;
+  $id('set-media-mb').value = s.media_max_mb;
+
+  $id('set-dispatch-min').value = s.dispatch_delay_min_sec;
+  $id('set-dispatch-max').value = s.dispatch_delay_max_sec;
+  $id('set-read-min').value     = s.read_delay_min_sec;
+  $id('set-read-max').value     = s.read_delay_max_sec;
+  $id('set-action-min').value   = s.action_delay_min_sec;
+  $id('set-action-max').value   = s.action_delay_max_sec;
+
+  $id('set-rate-per-min').value = s.rate_limit_per_min;
+  $id('set-rate-per-day').value = s.rate_limit_per_day;
+
+  const f = s.floors || {}, c = s.ceilings || {};
+  $id('set-media-mb-floor').textContent    = f.media_max_mb != null ? `(min ${f.media_max_mb})` : '';
+  $id('set-dispatch-min-floor').textContent = f.dispatch_delay_sec != null ? `(floor ${f.dispatch_delay_sec}s)` : '';
+  $id('set-read-min-floor').textContent     = f.read_delay_sec != null ? `(floor ${f.read_delay_sec}s)` : '';
+  $id('set-action-min-floor').textContent   = f.action_delay_sec != null ? `(floor ${f.action_delay_sec}s)` : '';
+  $id('set-rate-min-ceil').textContent      = c.rate_limit_per_min != null ? `(max ${c.rate_limit_per_min})` : '';
+  $id('set-rate-day-ceil').textContent      = c.rate_limit_per_day != null ? `(max ${c.rate_limit_per_day})` : '';
+}
+
+async function saveSettings() {
+  const res = $id('settings-result');
+  const body = {
+    media_skip_video_group: $id('set-skip-video-group').checked,
+    media_skip_video_chat:  $id('set-skip-video-chat').checked,
+    media_skip_photo_group: $id('set-skip-photo-group').checked,
+    media_skip_photo_chat:  $id('set-skip-photo-chat').checked,
+    media_max_mb: Number($id('set-media-mb').value),
+
+    dispatch_delay_min_sec: Number($id('set-dispatch-min').value),
+    dispatch_delay_max_sec: Number($id('set-dispatch-max').value),
+    read_delay_min_sec:     Number($id('set-read-min').value),
+    read_delay_max_sec:     Number($id('set-read-max').value),
+    action_delay_min_sec:   Number($id('set-action-min').value),
+    action_delay_max_sec:   Number($id('set-action-max').value),
+
+    rate_limit_per_min: Number($id('set-rate-per-min').value),
+    rate_limit_per_day: Number($id('set-rate-per-day').value),
+  };
+  const r = await api('POST', '/api/settings', body);
+  if (!r) return;
+  if (r.ok) {
+    applySettings(await r.json());
+    res.textContent = '✓ Saved (values shown are effective — may have been clamped to a floor/ceiling).';
+    res.style.color = 'var(--grn)';
+  } else {
+    const d = await r.json().catch(() => ({}));
+    res.textContent = '✗ ' + (d.error || 'save failed');
+    res.style.color = 'var(--red)';
+  }
+}
+
+// ── Rules by tier (1959) ─────────────────────────────────────────────
+async function fetchRules() {
+  const r = await api('GET', '/api/rules');
+  if (!r || !r.ok) return;
+  const d = await r.json();
+  $id('ru-individual').value = d.individual || '';
+  $id('ru-group').value      = d.group || '';
+  $id('ru-default').value    = d.default || '';
+}
+
+async function saveTypeRules(type) {
+  const res = $id('ru-result');
+  const rules = $id(type === 'individual' ? 'ru-individual' : 'ru-group').value;
+  const r = await api('POST', '/api/rules/type', { type, rules });
+  if (!r) return;
+  if (r.ok) {
+    res.textContent = '✓ Saved ' + type + ' rules.';
+    res.style.color = 'var(--grn)';
+  } else {
+    const d = await r.json().catch(() => ({}));
+    res.textContent = '✗ ' + (d.error || 'save failed');
+    res.style.color = 'var(--red)';
+  }
+}
+
+async function saveDefaultRules() {
+  const res = $id('ru-result');
+  const r = await api('POST', '/api/rules/default', { rules: $id('ru-default').value });
+  if (!r) return;
+  if (r.ok) {
+    res.textContent = '✓ Saved default rules.';
+    res.style.color = 'var(--grn)';
+  } else {
+    const d = await r.json().catch(() => ({}));
+    res.textContent = '✗ ' + (d.error || 'save failed');
+    res.style.color = 'var(--red)';
+  }
+}
+
+// ── MCP anti-flood ─────────────────────────────────────────
+async function fetchMCPGuard() {
+  const r = await api('GET', '/api/mcp-guard');
+  if (!r) return;
+  if (!r.ok) {
+    $id('mg-clients').innerHTML = '<span style="color:var(--dim);font-size:.85rem">unavailable</span>';
+    return;
+  }
+  applyMCPGuard(await r.json());
+}
+
+function applyMCPGuard(s) {
+  $id('mg-rate').value      = s.rate_per_min;
+  $id('mg-emit-rate').value = s.emit_rate_per_min;
+  $id('mg-threshold').value = s.block_threshold;
+  $id('mg-cooldown').value  = s.block_cooldown_sec;
+
+  const clients = s.clients || [];
+  const el = $id('mg-clients');
+  if (!clients.length) {
+    el.innerHTML = '<span style="color:var(--dim);font-size:.85rem">No MCP clients tracked yet.</span>';
+    return;
+  }
+  el.innerHTML = clients.map(c => `
+    <div class="rt-jid-row">
+      <span class="rt-jid" title="${esc(c.session_id)}">${esc(c.session_id)}</span>
+      <span style="font-size:.78rem;color:${c.blocked ? 'var(--red)' : 'var(--dim)'}">
+        ${c.blocked ? 'blocked until ' + new Date(c.blocked_until).toLocaleTimeString() : c.throttle_hits + ' throttle(s)'}
+      </span>
+    </div>`).join('');
+}
+
+async function saveMCPGuard() {
+  const res = $id('mg-result');
+  const body = {
+    rate_per_min: Number($id('mg-rate').value),
+    emit_rate_per_min: Number($id('mg-emit-rate').value),
+    block_threshold: Number($id('mg-threshold').value),
+    block_cooldown_sec: Number($id('mg-cooldown').value),
+  };
+  const r = await api('POST', '/api/mcp-guard', body);
+  if (!r) return;
+  if (r.ok) {
+    applyMCPGuard(await r.json());
+    res.textContent = '✓ Saved (values shown are effective — may have been clamped).';
+    res.style.color = 'var(--grn)';
+  } else {
+    const d = await r.json().catch(() => ({}));
+    res.textContent = '✗ ' + (d.error || 'save failed');
+    res.style.color = 'var(--red)';
+  }
+}
+
+// ── Session backup ────────────────────────────────────────
+async function fetchBackupStatus() {
+  const r = await api('GET', '/api/backup');
+  if (!r) return;
+  if (!r.ok) {
+    setText('bk-enabled', 'unavailable');
+    return;
+  }
+  applyBackupStatus(await r.json());
+}
+
+function applyBackupStatus(s) {
+  setText('bk-enabled', s.enabled ? 'on' : 'off (no PIMYWA_BACKUP_KEY)');
+  $id('bk-enabled').style.color = s.enabled ? 'var(--grn)' : 'var(--yel)';
+  const last = s.last_backup && s.last_backup.at;
+  setText('bk-last', last ? new Date(last).toLocaleString() : 'never');
+  setText('bk-count', s.count != null ? s.count : '—');
+}
+
+async function backupNow() {
+  const res = $id('bk-result');
+  res.textContent = 'Backing up…';
+  res.style.color = 'var(--dim)';
+  const r = await api('POST', '/api/backup');
+  if (!r) return;
+  if (r.ok) {
+    await r.json();
+    res.textContent = '✓ Backup written.';
+    res.style.color = 'var(--grn)';
+    fetchBackupStatus();
+  } else {
+    const d = await r.json().catch(() => ({}));
+    res.textContent = '✗ ' + (d.error || 'backup failed');
+    res.style.color = 'var(--red)';
+  }
+}
+
+// ── Bootstrap ────────────────────────────────────────────────────
+fetchStatus();
+fetchKill();
+fetchChats();
+fetchGateway();
+fetchRouter();
+fetchSettings();
+fetchRules();
+fetchMCPGuard();
+fetchBackupStatus();
+fetchBatteryLog();
+setInterval(fetchStatus,  3000);
+setInterval(fetchKill,    5000);
+setInterval(fetchChats,  10000);
+setInterval(fetchGateway, 3000);
+setInterval(fetchRouter,  30000);
+setInterval(fetchMCPGuard, 15000);
+setInterval(fetchBackupStatus, 60000);
+setInterval(fetchBatteryLog, 60000); // trace changes at most once/min (log sample interval)
+</script>
+</body>
+</html>

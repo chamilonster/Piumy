@@ -1,0 +1,22 @@
+{
+  "_comment": "Copy to router.json and adjust. router.json is gitignored (it may contain real phone numbers).",
+  "allow_all": false,
+  "default_mode": "advanced",
+  "whitelist": [
+    "56999999999@s.whatsapp.net"
+  ],
+  "routes": [
+    {
+      "match": "56999999999@s.whatsapp.net",
+      "mode": "advanced",
+      "plugin": "mcp-agent",
+      "model": "claude-opus-4-8"
+    },
+    {
+      "match": "*",
+      "mode": "advanced",
+      "plugin": "none",
+      "model": ""
+    }
+  ]
+}

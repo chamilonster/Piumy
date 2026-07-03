@@ -1,0 +1,27 @@
+[Unit]
+Description=Pimywa switchboard core (WhatsApp switchboard: MCP + REST API)
+Documentation=https://github.com/chamilonster/Piumy
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+# User is set by install.sh to the deploying user.
+User=chami
+WorkingDirectory=/opt/pimywa
+EnvironmentFile=/opt/pimywa/pimywa.env
+ExecStart=/opt/pimywa/pimywa serve
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pimywa-core
+# Allow binding port 80 (dashboard) without running as root.
+# CAP_NET_BIND_SERVICE lets a non-root process bind privileged ports (< 1024).
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+
+[Install]
+WantedBy=multi-user.target

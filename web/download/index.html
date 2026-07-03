@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Download Piumy — free &amp; open-source</title>
+<meta name="description" content="Install Piumy in one command on a Raspberry Pi, scan a QR, done. Free, open-source, AGPL-3.0.">
+<meta name="theme-color" content="#070b0a">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27><text y=%27.9em%27 font-size=%2790%27>🦉</text></svg>">
+<style>
+  :root{
+    --bg:#070b0a; --bg2:#0b1210; --panel:#0e1613; --border:#1b2a25;
+    --green:#25d366; --phos:#59ffa6; --dim:#4f7a64; --text:#cdead9;
+    --amber:#ffb454; --white:#eaf7ef;
+    --mono: ui-monospace,"SF Mono",SFMono-Regular,"Cascadia Code","Fira Code",Menlo,Consolas,"DejaVu Sans Mono",monospace;
+    --maxw: 780px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:var(--mono); font-size:16px; line-height:1.65; -webkit-font-smoothing:antialiased;
+    background-image:radial-gradient(1000px 500px at 50% -10%, rgba(37,211,102,.10), transparent 70%);
+    min-height:100vh;
+  }
+  body::before{
+    content:""; position:fixed; inset:0; pointer-events:none; z-index:9999;
+    background:repeating-linear-gradient(0deg, rgba(0,0,0,.16) 0, rgba(0,0,0,.16) 1px, transparent 2px, transparent 3px);
+    mix-blend-mode:multiply; opacity:.5;
+  }
+  a{color:var(--green); text-decoration:none}
+  a:hover{color:var(--phos); text-decoration:underline; text-underline-offset:3px}
+  :focus-visible{outline:2px solid var(--phos); outline-offset:3px; border-radius:2px}
+
+  .term{max-width:var(--maxw); margin:34px auto 0; border:1px solid var(--border); border-radius:10px;
+    background:linear-gradient(180deg, var(--panel), var(--bg2));
+    box-shadow:0 30px 80px -30px rgba(37,211,102,.18), inset 0 1px 0 rgba(255,255,255,.03); overflow:hidden}
+  .titlebar{display:flex; align-items:center; gap:8px; padding:9px 14px; border-bottom:1px solid var(--border);
+    background:rgba(255,255,255,.02); font-size:12.5px; color:var(--dim)}
+  .dot{width:11px;height:11px;border-radius:50%;display:inline-block}
+  .dot.r{background:#ff5f57}.dot.y{background:#febc2e}.dot.g{background:#28c840}
+  .titlebar .path{margin-left:8px}.titlebar .path b{color:var(--green)}
+  .screen{padding:30px 26px 34px}
+
+  .back{display:inline-flex;align-items:center;gap:7px;color:var(--dim);font-size:13px;margin-bottom:18px}
+  .back:hover{color:var(--phos);text-decoration:none}
+  h1{font-size:clamp(28px,6vw,42px); font-weight:700; color:var(--white); margin:0 0 8px;
+    text-shadow:0 0 18px rgba(37,211,102,.2); letter-spacing:.01em}
+  h1 .g{color:var(--green)}
+  .sub{color:var(--text); margin:0 0 4px; font-size:15.5px; max-width:60ch}
+  .free{display:inline-flex;align-items:center;gap:8px;margin:16px 0 0;padding:6px 14px;border:1px dashed var(--border);
+    border-radius:999px;color:var(--dim);font-size:12.5px}
+  .free b{color:var(--green)}
+
+  .cta{display:flex;flex-wrap:wrap;gap:12px;margin:24px 0 4px}
+  .btn{display:inline-flex;align-items:center;gap:9px;padding:12px 22px;border-radius:8px;font-size:14.5px;
+    font-weight:600;border:1px solid var(--border);letter-spacing:.01em}
+  .btn.pri{background:var(--green);color:#04140b;border-color:var(--green)}
+  .btn.pri:hover{background:var(--phos);text-decoration:none;box-shadow:0 0 24px rgba(37,211,102,.4)}
+  .btn.gho{color:var(--text);background:rgba(255,255,255,.02)}
+  .btn.gho:hover{color:var(--phos);border-color:var(--phos);text-decoration:none}
+
+  /* numbered step */
+  .step{max-width:var(--maxw);margin:0 auto;padding:30px 20px 0;display:flex;gap:18px;align-items:flex-start}
+  .num{flex:none;width:38px;height:38px;border-radius:9px;border:1px solid var(--border);
+    background:var(--panel);color:var(--green);font-weight:700;font-size:17px;
+    display:flex;align-items:center;justify-content:center;box-shadow:0 0 18px rgba(37,211,102,.12)}
+  .step.opt .num{color:var(--dim)}
+  .step-body{flex:1;min-width:0}
+  .step h2{font-size:19px;color:var(--white);font-weight:700;margin:6px 0 4px}
+  .step .tag{color:var(--dim);font-size:11px;letter-spacing:.18em;text-transform:uppercase}
+  .step p{color:var(--text);font-size:14.5px;max-width:60ch;margin:0}
+  .step p .k{color:var(--phos)}
+
+  .code{border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:12px 0 0;background:var(--bg2)}
+  .code .bar{padding:8px 14px;border-bottom:1px solid var(--border);color:var(--dim);font-size:12px;background:rgba(255,255,255,.02)}
+  .code pre{margin:0;padding:16px;overflow-x:auto;font-size:13.5px;line-height:1.7;color:var(--text)}
+  .code .cm{color:var(--dim)}
+  .prompt{color:var(--green)}
+  .small{color:var(--dim);font-size:12.5px;margin-top:10px}
+
+  section.block{max-width:var(--maxw);margin:0 auto;padding:40px 20px 0}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;color:var(--dim);font-size:12px;letter-spacing:.2em;
+    text-transform:uppercase;margin:0 0 12px}
+  .eyebrow::before{content:"";width:24px;height:1px;background:var(--green);opacity:.7}
+  section.block h2{font-size:19px;color:var(--white);font-weight:700;margin:0 0 6px}
+  .lead{color:var(--text);font-size:14.5px;max-width:64ch;margin:0 0 4px}
+  .lead .k{color:var(--phos)}
+
+  .links{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:16px 0 0}
+  .lk{border:1px solid var(--border);border-radius:9px;padding:14px 16px;background:var(--panel);display:block}
+  .lk:hover{border-color:var(--phos);text-decoration:none}
+  .lk .t{color:var(--white);font-weight:700;font-size:14px}
+  .lk .d{color:var(--dim);font-size:12.5px;margin-top:3px}
+
+  hr.sep{max-width:var(--maxw);margin:44px auto 0;border:0;border-top:1px solid var(--border)}
+
+  footer{max-width:var(--maxw);margin:28px auto 0;padding:0 20px 60px;
+    color:var(--dim);font-size:12.5px;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between}
+  footer a{color:var(--dim)} footer a:hover{color:var(--phos)}
+  footer .foot-links{display:flex;gap:18px;flex-wrap:wrap}
+  @media(max-width:560px){.step{gap:12px}.num{width:32px;height:32px;font-size:15px}}
+  @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+
+<div class="term">
+  <div class="titlebar">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="path"><b>piumy</b>@switchboard: ~/download</span>
+  </div>
+  <div class="screen">
+    <a class="back" href="../">← piumy.app</a>
+    <h1>Get <span class="g">Piumy</span> running 🦉</h1>
+    <p class="sub"><b style="color:var(--white)">It's free.</b> Pay $0 and take everything — it's open-source on GitHub. Two steps and it's live; a third if you want your AI to answer.</p>
+    <div class="cta">
+      <a class="btn pri" href="https://github.com/chamilonster/Piumy">★ Get it on GitHub — free</a>
+      <a class="btn gho" href="#donate">♥ Donate — pay what you want</a>
+    </div>
+    <span class="free">🔓 <b>AGPL-3.0</b> · no account · no tracking · it's yours</span>
+  </div>
+</div>
+
+<div class="step">
+  <div class="num">1</div>
+  <div class="step-body">
+    <div class="tag">Install</div>
+    <h2>One command on your Raspberry Pi</h2>
+    <p>On a Pi Zero 2 W with Raspberry Pi OS Lite, paste this. The installer does the rest — display, services, anti-ban defaults — and prints your MCP token once.</p>
+    <div class="code">
+      <div class="bar">bash · on the Pi</div>
+<pre><span class="prompt">$</span> git clone https://github.com/chamilonster/Piumy
+<span class="prompt">$</span> cd Piumy &amp;&amp; sudo ./deploy/install.sh</pre>
+    </div>
+  </div>
+</div>
+
+<div class="step">
+  <div class="num">2</div>
+  <div class="step-body">
+    <div class="tag">Link</div>
+    <h2>Scan the QR with WhatsApp</h2>
+    <p>When it's up, Piumy shows a QR (on the e-paper, or in the dashboard). On your phone: <span class="k">WhatsApp → Linked devices → Link a device</span>, and scan it. Use a <b style="color:var(--white)">dedicated number</b>, not your main one. That's it — Piumy is live.</p>
+  </div>
+</div>
+
+<div class="step opt">
+  <div class="num">3</div>
+  <div class="step-body">
+    <div class="tag">Optional</div>
+    <h2>Let your AI answer — MCP</h2>
+    <p>Point your AI (Claude Code, OpenCode, any MCP client) at Piumy with the token the installer printed:</p>
+    <div class="code">
+      <div class="bar">bash · in your AI's terminal</div>
+<pre><span class="prompt">$</span> claude mcp add --transport http piumy \
+    http://piumy.local:8081/mcp \
+    --header "Authorization: Bearer &lt;token&gt;"</pre>
+    </div>
+    <p class="small">Prefer a config file? The <code>.mcp.json</code> snippet is in the <a href="https://github.com/chamilonster/Piumy#connecting-the-brain-mcp">README</a>. There's also a ready-made <a href="https://github.com/chamilonster/Piumy/blob/master/skill/piumy/SKILL.md">Claude Code skill</a> that teaches your agent the rules and a human pace.</p>
+  </div>
+</div>
+
+<section class="block" id="try">
+  <span class="eyebrow">No Raspberry Pi?</span>
+  <h2>Try it on your laptop first</h2>
+  <p class="lead">No board, no WhatsApp — just watch the face render. The core writes <code>status.json</code>; the file adapter draws it.</p>
+  <div class="code">
+    <div class="bar">bash</div>
+<pre><span class="prompt">$</span> cd core &amp;&amp; go run . responding
+<span class="prompt">$</span> cd ../adapters/display/file
+<span class="prompt">$</span> pip install -r requirements.txt &amp;&amp; python render.py</pre>
+  </div>
+</section>
+
+<section class="block">
+  <span class="eyebrow">More</span>
+  <div class="links">
+    <a class="lk" href="https://github.com/chamilonster/Piumy"><div class="t">GitHub repo</div><div class="d">Source, issues, releases</div></a>
+    <a class="lk" href="https://github.com/chamilonster/Piumy/blob/master/HARDWARE.md"><div class="t">HARDWARE.md</div><div class="d">Boards, pinout, wiring</div></a>
+    <a class="lk" href="https://github.com/chamilonster/Piumy/blob/master/README.md"><div class="t">README</div><div class="d">What it is · full guide</div></a>
+    <a class="lk" href="https://www.reddit.com/r/Piumy/"><div class="t">r/Piumy</div><div class="d">Community · questions · show your build</div></a>
+  </div>
+</section>
+
+<section class="block" id="donate">
+  <span class="eyebrow">Free — or donate</span>
+  <h2>Pay $0, or pay what you want.</h2>
+  <p class="lead">Piumy is free and open-source under AGPL-3.0 — install it above and pay nothing, no account, no catch. But donations are the <b style="color:var(--green)">cornerstone</b>: without them, Piumy stops at this MVP.</p>
+  <p class="lead" style="margin-top:10px">And don't let the name fool you — <b style="color:var(--white)">WhatsApp is only the kickoff</b>. The plan is a secure personal gateway: mic, speaker, screens, buttons, APIs, encrypted tunnels — connecting almost anything, to give busy people and anyone the everyday is harder on a real hand. If that's worth something to you, chip in what you can.</p>
+  <div class="cta">
+    <a class="btn pri lemonsqueezy-button" href="https://clevercat.lemonsqueezy.com/checkout/buy/3e2ebe37-5116-4e2a-9400-2246c1199c8d?embed=1&amp;logo=0&amp;discount=0">♥ Donate — pay what you want</a>
+    <a class="btn gho" href="https://github.com/chamilonster/Piumy">Just download (free)</a>
+  </div>
+</section>
+
+<hr class="sep">
+
+<footer>
+  <div><b style="color:var(--green)">Piumy</b> 🦉 · Always online. Always yours.</div>
+  <div class="foot-links">
+    <a href="../">piumy.app</a>
+    <a href="https://www.reddit.com/r/Piumy/">r/Piumy</a>
+    <a href="https://github.com/chamilonster/Piumy">GitHub</a>
+    <a href="https://github.com/chamilonster/Piumy/blob/master/LICENSE">AGPL-3.0</a>
+  </div>
+  <div style="flex-basis:100%;display:flex;align-items:center;gap:9px;margin-top:6px;color:var(--dim);font-size:12px">
+    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAABnElEQVR4nO2aUW7DIAyGbYuj5HHnmHKfLadAu0/usdecpUysykZTwE6BAE2/pyqlxJj/N0YqmjeQMYL5+zwDHvaMgaBzCDqHoHMIOge9JnbNVJs5bub2d2CMJ7P9BTCLUMAhrMfFAx/B+GLhFwAAy3v4u+HLAEx4nyFtcPlA8RgvF8CB4hJSTRmWwxNrugd8mT3it8VN7AaXIdAQymvSVmU138faRxmNgOaTybZd9femimiDEnksl2vGopVEB+ZanzPy634HlGhUQROmvpNv5qyEQqZmtpmVkJbJ5CaW55PQmKFk+jJpn61tgv0cKgJ78MQqq0KRRa4yeZSB6XXymDgWgG3UVqRavi2dkMJJTmId0Kyr/T2l1h2vI3MLvJJu4tRuVO8wdFI77b5ImJ1dc+vN/EJkN7L/W9P1YIIyLGtFc25pA5Uyca72YmK84PI6iUs2d9PvnHj8nbgyBJ2jznESN4xqNttFTZzzFE6c8/F2mrsObgOSjjubiVF0qa/JGI+Fl1Cru/EsZZSgc/D1V4PKEHQOQedQ7QBS+QGvfcVQS8PD2gAAAABJRU5ErkJggg==" alt="clever.cat" width="22" height="22" style="display:block;image-rendering:pixelated">
+    Made by <a href="https://clever.cat" style="color:var(--dim)">Camilo Brossard · clever.cat</a>
+  </div>
+</footer>
+
+<script src="https://assets.lemonsqueezy.com/lemon.js" defer></script>
+</body>
+</html>

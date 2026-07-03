@@ -1,0 +1,21 @@
+[Unit]
+Description=Pimywa e-paper display (living face, partial-refresh animator)
+Documentation=https://github.com/chamilonster/Piumy
+After=pimywa-core.service
+Wants=pimywa-core.service
+
+[Service]
+Type=simple
+# User is set by install.sh to the deploying user.
+User=chami
+WorkingDirectory=/opt/pimywa/display
+EnvironmentFile=/opt/pimywa/pimywa.env
+ExecStart=/usr/bin/python3 /opt/pimywa/display/service.py
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pimywa-display
+
+[Install]
+WantedBy=multi-user.target

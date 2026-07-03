@@ -1,0 +1,5 @@
+# smbus2: generic Linux i2c-dev binding (NOT a CW2015 vendor SDK) -- only
+# needed on the Pi, when PIMYWA_POWER_BACKEND=cw2015-i2c. Absent on a dev PC:
+# the backend degrades to a no-op (see cw2015.py), this module stays
+# importable/unit-testable either way.
+smbus2>=0.4
