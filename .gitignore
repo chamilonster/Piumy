@@ -37,6 +37,11 @@ display.png
 *.test
 *.out
 
+# --- Piumy Desktop (tools/desktop) build output ---
+tools/desktop/build/
+tools/desktop/dist/
+tools/desktop/*.spec
+
 # --- Python ---
 __pycache__/
 *.py[cod]
