@@ -12,6 +12,10 @@ data sources, toggled from the right-click menu ("Source: Local/Pi"):
   `[Pi unreachable]` log line, panel frozen on the last frame, no crash) if
   the Pi is off or unreachable.
 
+A **system tray icon** keeps the app reachable once the carita is hidden:
+show/hide, open the dashboard, quit — the tray icon's face is cropped from a
+real `render_image()` frame, not a separate drawing.
+
 See [`DESIGN.md`](DESIGN.md) for the full plan. All three milestones done —
 the companion is feature-complete.
 
@@ -24,8 +28,13 @@ python desktop.py
 ```
 
 Right-click the panel for the menu (toggle the log, stop/start the sandboxed
-core, quit). Left-drag anywhere on the panel to move it — position is
-remembered across restarts (`%LOCALAPPDATA%\Piumy\desktop_state.json`).
+core, Local/Pi toggle, Open Dashboard, quit). Left-drag anywhere on the panel
+to move it — position is remembered across restarts
+(`%LOCALAPPDATA%\Piumy\desktop_state.json`). The tray icon (bottom-right of
+the taskbar, may be under the "^" overflow arrow the first time Windows sees
+it) has its own menu: show/hide the carita, open the dashboard, quit — this
+is the only way back once the carita itself is hidden, so it always has its
+own Quit too.
 
 ## Build the standalone `.exe`
 
@@ -43,7 +52,9 @@ install needed on the target machine.
 - `desktop.py` — the Tkinter widget: frameless window, panel repaint loop
   (reusing `render_image`), collapsible log (drained on its own fast timer,
   independent of the slow idle-animation cadence), right-click menu
-  (Local/Pi toggle, Open Dashboard, start/stop, quit).
+  (Local/Pi toggle, Open Dashboard, start/stop, quit), and the system tray
+  icon (`pystray`, its own thread -- no main-thread restriction on Windows,
+  unlike pywebview).
 - `sources.py` — `LocalSource` (sandboxed core: `PIMYWA_GATEWAY=none`,
   dashboard on a loopback high port with a random password, own temp dir +
   free ports) and `PiSource` (the real Pi, read-only: REST poll +
