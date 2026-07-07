@@ -44,8 +44,8 @@ Status legend: ✅ done & deployed · 🚧 in progress · 🗓️ planned (MVP) 
 
 ## Desktop companion (Windows, `tools/desktop/`)
 - ✅ **M1** — floating carita: frameless always-on-top Tkinter widget, reuses `render.py` (pixel-identical to the e-paper), sandboxed local core, live log, packaged `Piumy.exe` (PyInstaller)
-- 🗓️ M2 — "Open Dashboard" button (pywebview, auto-login)
-- 🗓️ M3 — Pi source (REST + SSH journald) + Local/Pi toggle
+- ✅ M2 — "Open Dashboard" button: sandbox dashboard auto-logged-in in a pywebview window
+- ✅ M3 — Pi source (REST poll + SSH journald), read-only, + Local/Pi toggle (live-Pi smoke pending the board being on)
 
 ## Client / brain side
 - 🗓️ **Skill** — a Claude Code skill that operates Piumy via the MCP tools (zero install)
