@@ -17,6 +17,7 @@ out of scope here; desktop.py only shows it as a greyed menu stub.
 """
 import os
 import queue
+import secrets
 import socket
 import subprocess
 import sys
@@ -46,8 +47,8 @@ def _exe_dir() -> str:
 
 class LocalSource:
     """Runs the Go core as a sandboxed subprocess: no WhatsApp (PIMYWA_GATEWAY
-    =none), no dashboard bind (PIMYWA_DASH=0 -- port 80 needs admin on
-    Windows and M1 has no use for it yet), all state files redirected into a
+    =none), dashboard on a loopback-only high port with a random password
+    (M2's "Open Dashboard" webview), all state files redirected into a
     private temp dir so nothing touches a real deploy.
     """
 
@@ -57,6 +58,12 @@ class LocalSource:
         self.status_path = os.path.join(self.sandbox_dir, "status.json")
         self.api_port = _free_port()
         self.mcp_port = _free_port()
+        self.dash_port = _free_port()
+        self.dash_user = "admin"
+        # Random, session-local -- nobody types this; the M2 dashboard button
+        # knows it (LocalSource generated it) and auto-fills the login form.
+        self.dash_pass = secrets.token_urlsafe(18)
+        self.dashboard_url = f"http://127.0.0.1:{self.dash_port}/"
 
         self.proc: subprocess.Popen | None = None
         self._log_cb = None
@@ -86,7 +93,13 @@ class LocalSource:
             "PIMYWA_BATTERY_FILE": os.path.join(self.sandbox_dir, "battery.json"),
             "PIMYWA_FACE_FILE": os.path.join(self.sandbox_dir, "face.json"),
             "PIMYWA_GATEWAY": "none",
-            "PIMYWA_DASH": "0",
+            # Dashboard ON, loopback-only high port (M2: the default ":80"
+            # needs admin on Windows and this box only needs it reachable to
+            # the local webview, never the LAN).
+            "PIMYWA_DASH": "1",
+            "PIMYWA_DASH_ADDR": f"127.0.0.1:{self.dash_port}",
+            "PIMYWA_DASH_USER": self.dash_user,
+            "PIMYWA_DASH_PASS": self.dash_pass,
             "PIMYWA_API_ADDR": f"127.0.0.1:{self.api_port}",
             "PIMYWA_MCP_ADDR": f"127.0.0.1:{self.mcp_port}",
         })

@@ -1,18 +1,21 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (C) 2026 Camilo Brossard
-"""Piumy Desktop -- floating carita companion (M1: LOCAL source only).
+"""Piumy Desktop -- floating carita companion (M1 carita + M2 dashboard button).
 
 A frameless, always-on-top, draggable Tkinter widget that shows the e-paper
 panel -- rendered by the SAME `adapters/display/render.py` the real Pi uses,
 so this is pixel-for-pixel the real carita, not a re-implementation -- fed by
 a sandboxed local copy of the Go core (sources.LocalSource: no WhatsApp, no
-hardware). A collapsible live log sits below it. See DESIGN.md for the full
-plan; M2 (dashboard webview) and M3 (Pi source) are separate subcontracts --
-their menu entries exist here only as greyed stubs.
+hardware). A collapsible live log sits below it. "Open Dashboard" opens the
+sandbox's own dashboard, auto-logged-in, in a pywebview window (dashboard.py,
+run as its own process -- see `_open_dashboard`). See DESIGN.md for the full
+plan; M3 (Pi source) is a separate subcontract -- its menu entry exists here
+only as a greyed stub.
 """
 import json
 import os
 import queue
+import subprocess
 import sys
 import tempfile
 import time
@@ -115,7 +118,7 @@ class App:
         self._log_visible = False
 
         self.menu = tk.Menu(self.root, tearoff=0)
-        self.menu.add_command(label="Open Dashboard", state="disabled")  # M2
+        self.menu.add_command(label="Open Dashboard", command=self._open_dashboard)
         self.menu.add_command(label="Source: Local", state="disabled")   # M3
         self.menu.add_separator()
         self.menu.add_command(label="Toggle log", command=self._toggle_log)
@@ -177,6 +180,23 @@ class App:
             self._append_log(f"[{exc}]")
             label = "Start core"
         self.menu.entryconfigure(self._start_stop_index, label=label)
+
+    def _open_dashboard(self):
+        # dashboard.py's webview.start() must run on a process's main thread
+        # (pywebview raises on Windows otherwise) -- Tkinter's mainloop
+        # already owns this one, so the dashboard runs as its OWN process,
+        # not a thread. Frozen: re-exec this same Piumy.exe with a hidden
+        # mode flag (see the bottom of this file); dev: re-exec via the
+        # current Python interpreter + this script's path.
+        if not self.source.is_alive():
+            self._append_log("[Open Dashboard: core is not running]")
+            return
+        if getattr(sys, "frozen", False):
+            args = [sys.executable]
+        else:
+            args = [sys.executable, os.path.abspath(__file__)]
+        args += ["--dashboard", self.source.dashboard_url, self.source.dash_user, self.source.dash_pass]
+        subprocess.Popen(args)
 
     # -- position persistence -------------------------------------------------
     def _restore_position(self):
@@ -265,5 +285,13 @@ def _self_check() -> None:
 
 
 if __name__ == "__main__":
-    _self_check()
-    App().run()
+    # Hidden re-exec mode (see App._open_dashboard): this same script/exe,
+    # spawned as its OWN process so pywebview's start() gets a fresh main
+    # thread instead of fighting Tkinter's mainloop for the one in this
+    # process. Never reached via a normal double-click/launch.
+    if len(sys.argv) == 5 and sys.argv[1] == "--dashboard":
+        import dashboard
+        dashboard.open_dashboard(sys.argv[2], sys.argv[3], sys.argv[4])
+    else:
+        _self_check()
+        App().run()
