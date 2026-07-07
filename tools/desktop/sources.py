@@ -10,11 +10,13 @@ One small interface, two implementations (see DESIGN.md):
     stop()                   # bring the source down
     is_alive() -> bool       # still producing fresh data?
 
-LocalSource (this file) is the only one M1 builds: a sandboxed local copy of
-the Go core, gateway/dashboard disabled, driving render_image from a real
-status.json. PiSource (REST poll + SSH journald against the real Pi) is M3 --
-out of scope here; desktop.py only shows it as a greyed menu stub.
+LocalSource: a sandboxed local copy of the Go core, driving render_image
+from a real status.json. PiSource (M3): the same shape against a REAL Pi,
+READ-ONLY -- REST poll for status, SSH journald for the log; never a command
+that changes the Pi. Both degrade (is_alive() False + one log line) rather
+than crash when their backend goes away.
 """
+import json
 import os
 import queue
 import secrets
@@ -24,6 +26,7 @@ import sys
 import tempfile
 import threading
 import time
+import urllib.request
 
 # Go's log package writes to stderr; merged into stdout so ordering is
 # preserved in one stream (DESIGN.md: "the rich real log: moods, sends, MCP,
@@ -161,13 +164,130 @@ class LocalSource:
             return self._last_status
         if mtime != self._last_mtime:
             try:
-                import json
                 with open(self.status_path, encoding="utf-8") as fh:
                     self._last_status = json.load(fh)
                 self._last_mtime = mtime
             except (OSError, ValueError):
                 pass  # transient tmp+rename race -- keep the last good status
         return self._last_status
+
+
+# -- PiSource (M3) --------------------------------------------------------------
+
+_PI_CREDS_FILE = r"C:\proyectos\Piumy\pipass.txt"  # local secrets, never in git
+_DEFAULT_PI_HOST = "192.168.1.79"
+_DEFAULT_PI_REST_PORT = 8080
+_DEFAULT_SSH_KEY = os.path.expanduser("~/.ssh/pimywa_pi")
+
+
+def _read_pi_ssh_user() -> str | None:
+    """Line 1 of the local secrets file is the SSH username -- read at
+    runtime, never hardcoded/committed. Only the username is used here: SSH
+    auth goes through the key (line 3 of that file notes key-auth is the
+    live deploy's actual setup, password is a legacy fallback), so the
+    line-2 password never needs to be read or passed around at all."""
+    try:
+        with open(_PI_CREDS_FILE, encoding="utf-8") as fh:
+            first = fh.readline().strip()
+        return first or None
+    except OSError:
+        return None
+
+
+class PiSource:
+    """Monitors a REAL Pi, READ-ONLY: REST poll for status (GET /api/status)
+    ~1/s, SSH journald for the live log. Never issues a control/write
+    command against the Pi. Degrades instead of crashing when the Pi is
+    unreachable: is_alive() goes False, one `[Pi unreachable]` log line (not
+    a repeat per poll), the caller's own tick loop freezes the panel on the
+    last frame -- same contract LocalSource already honors.
+
+    Zero hardcode: PIMYWA_PI_HOST / _REST_PORT / _SSH_USER / _SSH_KEY env
+    vars override every default; the SSH username otherwise comes from the
+    local secrets file.
+    """
+
+    def __init__(self):
+        self.host = os.getenv("PIMYWA_PI_HOST", _DEFAULT_PI_HOST)
+        self.rest_port = int(os.getenv("PIMYWA_PI_REST_PORT", str(_DEFAULT_PI_REST_PORT)))
+        self.ssh_user = os.getenv("PIMYWA_PI_SSH_USER") or _read_pi_ssh_user() or "pi"
+        self.ssh_key = os.getenv("PIMYWA_PI_SSH_KEY", _DEFAULT_SSH_KEY)
+
+        self._log_cb = None
+        self._stop_evt = threading.Event()
+        self._poll_thread: threading.Thread | None = None
+        self._ssh_thread: threading.Thread | None = None
+        self._ssh_proc: subprocess.Popen | None = None
+        self._last_status: dict = {"mood": "idle"}
+        self._alive = False
+        self._unreachable_logged = False
+
+    def on_log(self, cb) -> None:
+        self._log_cb = cb
+
+    def start(self) -> None:
+        self._stop_evt.clear()
+        self._unreachable_logged = False
+        self._poll_thread = threading.Thread(target=self._poll_loop, daemon=True)
+        self._poll_thread.start()
+        self._ssh_thread = threading.Thread(target=self._ssh_loop, daemon=True)
+        self._ssh_thread.start()
+
+    def stop(self) -> None:
+        self._stop_evt.set()
+        if self._ssh_proc is not None and self._ssh_proc.poll() is None:
+            self._ssh_proc.terminate()
+        self._alive = False
+
+    def is_alive(self) -> bool:
+        """True while the REST poll is currently succeeding -- the caller's
+        tick loop uses this to decide whether to repaint or freeze."""
+        return self._alive
+
+    def status(self) -> dict:
+        return self._last_status
+
+    def _poll_loop(self) -> None:
+        url = f"http://{self.host}:{self.rest_port}/api/status"
+        while not self._stop_evt.is_set():
+            try:
+                with urllib.request.urlopen(url, timeout=2) as resp:
+                    self._last_status = json.loads(resp.read().decode("utf-8"))
+                self._alive = True
+                self._unreachable_logged = False
+            except Exception:
+                self._alive = False
+                if not self._unreachable_logged and self._log_cb:
+                    self._log_cb("[Pi unreachable]")
+                    self._unreachable_logged = True  # one line, not a spam loop
+            self._stop_evt.wait(1.0)
+
+    def _ssh_loop(self) -> None:
+        # journald only -- /api/events is a nudge stream, not a log (DESIGN.md).
+        args = [
+            "ssh", "-i", self.ssh_key,
+            "-o", "BatchMode=yes",           # never prompt -- key auth or fail
+            "-o", "ConnectTimeout=5",
+            "-o", "StrictHostKeyChecking=accept-new",
+            f"{self.ssh_user}@{self.host}",
+            "journalctl -u pimywa-core -u pimywa-display -f -o cat",
+        ]
+        try:
+            self._ssh_proc = subprocess.Popen(
+                args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, bufsize=1, creationflags=_NO_WINDOW,
+            )
+        except OSError as exc:
+            if self._log_cb:
+                self._log_cb(f"[Pi SSH log unavailable: {exc}]")
+            return
+        if self._ssh_proc.stdout is None:
+            return
+        for line in self._ssh_proc.stdout:
+            if self._stop_evt.is_set():
+                break
+            if self._log_cb:
+                self._log_cb(line.rstrip("\n"))
 
 
 def _self_check() -> None:
@@ -199,5 +319,53 @@ def _self_check() -> None:
     print("self-check OK")
 
 
+def _pisource_self_check() -> None:
+    """Config resolution + pre-start state -- always runnable, no network.
+    A real reachability run (below) covers the actual degrade-or-monitor
+    path, whichever the Pi happens to be doing right now."""
+    os.environ["PIMYWA_PI_HOST"] = "10.0.0.99"
+    os.environ["PIMYWA_PI_SSH_USER"] = "test-user"
+    try:
+        src = PiSource()
+        assert src.host == "10.0.0.99", "env override for host not honored"
+        assert src.ssh_user == "test-user", "env override for ssh user not honored"
+        assert src.is_alive() is False, "should not be alive before start()"
+        assert src.status() == {"mood": "idle"}, "status() should be the safe default before start()"
+    finally:
+        del os.environ["PIMYWA_PI_HOST"]
+        del os.environ["PIMYWA_PI_SSH_USER"]
+    print("PiSource config/pre-start self-check OK")
+
+
+def _pisource_reachability_check() -> None:
+    """Runs PiSource for real against whatever PIMYWA_PI_HOST resolves to
+    (default: the real Pi) for a few seconds -- exercises the ACTUAL path
+    live, whichever one that is right now: a reachable Pi (status/log flow)
+    or an unreachable one (the graceful-degradation path this contract
+    specifically asks to verify). Never asserts a particular outcome --
+    only that whichever path runs behaves honestly (no crash, no fabricated
+    status, at most one unreachable log line)."""
+    src = PiSource()
+    print(f"probing Pi at {src.host}:{src.rest_port} (ssh user={src.ssh_user!r})")
+    lines = []
+    src.on_log(lines.append)
+    src.start()
+    time.sleep(6)
+    alive = src.is_alive()
+    status = src.status()
+    src.stop()
+    time.sleep(0.5)
+    if alive:
+        print(f"Pi REACHABLE -- mood={status.get('mood')!r}, {len(lines)} log lines")
+    else:
+        assert lines.count("[Pi unreachable]") == 1, "expected exactly one unreachable line, not a spam loop"
+        assert status == {"mood": "idle"}, "no fabricated status while unreachable"
+        print("Pi UNREACHABLE -- degraded cleanly (one log line, no crash, no fabricated status)")
+    assert not src.is_alive(), "PiSource did not stop"
+    print("PiSource reachability check OK")
+
+
 if __name__ == "__main__":
     _self_check()
+    _pisource_self_check()
+    _pisource_reachability_check()

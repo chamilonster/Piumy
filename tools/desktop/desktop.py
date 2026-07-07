@@ -1,16 +1,17 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (C) 2026 Camilo Brossard
-"""Piumy Desktop -- floating carita companion (M1 carita + M2 dashboard button).
+"""Piumy Desktop -- floating carita companion (M1 carita + M2 dashboard + M3 Pi source).
 
 A frameless, always-on-top, draggable Tkinter widget that shows the e-paper
 panel -- rendered by the SAME `adapters/display/render.py` the real Pi uses,
-so this is pixel-for-pixel the real carita, not a re-implementation -- fed by
-a sandboxed local copy of the Go core (sources.LocalSource: no WhatsApp, no
-hardware). A collapsible live log sits below it. "Open Dashboard" opens the
+so this is pixel-for-pixel the real carita, not a re-implementation. Two data
+sources, same shape (sources.py): LocalSource (a sandboxed local copy of the
+Go core: no WhatsApp, no hardware) and PiSource (the REAL Pi, read-only --
+REST poll + SSH journald), toggled via the "Source: Local/Pi" menu entry. A
+collapsible live log sits below the panel. "Open Dashboard" opens the LOCAL
 sandbox's own dashboard, auto-logged-in, in a pywebview window (dashboard.py,
-run as its own process -- see `_open_dashboard`). See DESIGN.md for the full
-plan; M3 (Pi source) is a separate subcontract -- its menu entry exists here
-only as a greyed stub.
+run as its own process -- see `_open_dashboard`); it only applies to
+Source: Local. See DESIGN.md for the full plan.
 """
 import json
 import os
@@ -23,7 +24,7 @@ import tkinter as tk
 
 from PIL import Image, ImageTk
 
-from sources import LocalSource
+from sources import LocalSource, PiSource
 
 # -- resolve the shared renderer (adapters/display/render.py) ---------------
 # Dev mode: import in place from the repo -- one source of truth, no copy to
@@ -47,6 +48,7 @@ SCALE = 1  # nearest-neighbor upscale of the 250x122 1-bit panel (owner feedback
            # small companion instead)
 W, H = 250, 122
 LOG_MAX_LINES = 2000
+LOG_DRAIN_MS = 300  # independent of the animation cadence -- see _drain_log_tick
 
 # Idle-animation cadence -- ported from adapters/display/service.py's
 # _anim_interval (same "sobre de atencion" lerp: fast right after a mood
@@ -98,6 +100,7 @@ class App:
         self._restore_position()
         self._start_source()
         self._tick()
+        self._drain_log_tick()
 
     # -- UI ------------------------------------------------------------------
     def _build_ui(self):
@@ -119,7 +122,8 @@ class App:
 
         self.menu = tk.Menu(self.root, tearoff=0)
         self.menu.add_command(label="Open Dashboard", command=self._open_dashboard)
-        self.menu.add_command(label="Source: Local", state="disabled")   # M3
+        self._source_index = self.menu.index("end") + 1
+        self.menu.add_command(label="Source: Local", command=self._toggle_source)
         self.menu.add_separator()
         self.menu.add_command(label="Toggle log", command=self._toggle_log)
         self._start_stop_index = self.menu.index("end") + 1
@@ -181,6 +185,29 @@ class App:
             label = "Start core"
         self.menu.entryconfigure(self._start_stop_index, label=label)
 
+    def _toggle_source(self):
+        # Swap the data source in place: stop the current one, bring up the
+        # other, re-hook the log queue (a fresh source instance needs its own
+        # on_log registration), keep the same tick loop/panel/log running.
+        self.source.stop()
+        if isinstance(self.source, LocalSource):
+            self.source = PiSource()
+            label = "Source: Pi"
+        else:
+            self.source = LocalSource()
+            label = "Source: Local"
+        self.source.on_log(self._log_q.put)
+        self._frozen_logged = False
+        self._start_source()
+        self.menu.entryconfigure(self._source_index, label=label)
+        # Force an immediate refresh instead of waiting for whatever slow
+        # idle-animation interval was already pending (up to 60s, see
+        # _anim_interval) -- a source swap should show up right away, not on
+        # the next scheduled tick. The stale pending after() call still
+        # fires later too; harmless (drains an empty queue / repaints the
+        # same frame again).
+        self._tick()
+
     def _open_dashboard(self):
         # dashboard.py's webview.start() must run on a process's main thread
         # (pywebview raises on Windows otherwise) -- Tkinter's mainloop
@@ -188,6 +215,11 @@ class App:
         # not a thread. Frozen: re-exec this same Piumy.exe with a hidden
         # mode flag (see the bottom of this file); dev: re-exec via the
         # current Python interpreter + this script's path.
+        # LOCAL only -- PiSource has no sandboxed dashboard to open (the real
+        # Pi's own dashboard is out of scope for this button).
+        if not isinstance(self.source, LocalSource):
+            self._append_log("[Open Dashboard: only available on Source: Local]")
+            return
         if not self.source.is_alive():
             self._append_log("[Open Dashboard: core is not running]")
             return
@@ -231,9 +263,17 @@ class App:
         except queue.Empty:
             pass
 
+    def _drain_log_tick(self):
+        # Independent fast timer, decoupled from _tick()'s slow idle-animation
+        # cadence (which can legitimately be up to _ANIM_SLOW_SEC between
+        # calls) -- a background source thread's log line (e.g. PiSource's
+        # "[Pi unreachable]") must show up promptly, not whenever the panel
+        # next happens to repaint.
+        self._drain_log()
+        self.root.after(LOG_DRAIN_MS, self._drain_log_tick)
+
     # -- animation / repaint ----------------------------------------------------
     def _tick(self):
-        self._drain_log()
         if self.source.is_alive():
             status = self.source.status()
             mood = status.get("mood", "idle")
@@ -246,9 +286,10 @@ class App:
             self._repaint(status)
             self._frozen_logged = False
         elif not self._frozen_logged:
-            # Core died (crash or "Stop core") -- leave the last frame on
-            # screen (no re-render below) instead of animating stale data.
-            self._append_log("[core exited -- panel frozen]")
+            # Source went away (LocalSource crashed/stopped, or PiSource lost
+            # the Pi -- it already logged its own "[Pi unreachable]" line) --
+            # leave the last frame on screen instead of animating stale data.
+            self._append_log("[source unavailable -- panel frozen]")
             self._frozen_logged = True
 
         interval = _anim_interval(time.monotonic() - self._last_interaction)
