@@ -95,6 +95,7 @@ class App:
         self._last_interaction = time.monotonic()
         self._frozen_logged = False
         self._photo = None  # keep a live reference -- Tk drops GC'd images
+        self._tick_id = None  # pending self.root.after() for _tick -- see _toggle_source
 
         self._build_ui()
         self._restore_position()
@@ -203,9 +204,13 @@ class App:
         # Force an immediate refresh instead of waiting for whatever slow
         # idle-animation interval was already pending (up to 60s, see
         # _anim_interval) -- a source swap should show up right away, not on
-        # the next scheduled tick. The stale pending after() call still
-        # fires later too; harmless (drains an empty queue / repaints the
-        # same frame again).
+        # the next scheduled tick. Cancel that pending call first: _tick()
+        # re-schedules itself, so calling it directly without cancelling
+        # would leave TWO chains running in parallel from here on (each
+        # further toggle adding another) -- after_cancel on an already-fired
+        # id is a safe no-op, so this is correct even on the very first tick.
+        if self._tick_id is not None:
+            self.root.after_cancel(self._tick_id)
         self._tick()
 
     def _open_dashboard(self):
@@ -293,7 +298,7 @@ class App:
             self._frozen_logged = True
 
         interval = _anim_interval(time.monotonic() - self._last_interaction)
-        self.root.after(int(interval * 1000), self._tick)
+        self._tick_id = self.root.after(int(interval * 1000), self._tick)
 
     def _repaint(self, status: dict):
         img = render_image(status, anim_step=self._anim_step)
@@ -325,6 +330,33 @@ def _self_check() -> None:
         prev = cur
 
 
+def _selfcheck_no_tick_leak() -> None:
+    """Regression check (Citrino caught this in review): _toggle_source()
+    calls _tick() directly for an immediate refresh, since _tick's own
+    schedule can legitimately be up to _ANIM_SLOW_SEC away. _tick()
+    re-schedules itself via self.root.after() -- calling it directly
+    without cancelling the already-pending one first would leave an EXTRA
+    parallel chain running per toggle (accumulating: N toggles -> N chains,
+    the panel repainting/advancing faster with every one). Not run on every
+    launch (spins up a real App -- real subprocess core, real Tk window --
+    too slow/visible for routine startup); run manually: `python desktop.py
+    --selfcheck-ticks`.
+    """
+    app = App()
+    try:
+        before = len(app.root.tk.call("after", "info"))
+        for _ in range(5):
+            app._toggle_source()
+        after = len(app.root.tk.call("after", "info"))
+        assert after <= before, (
+            f"pending after() count grew ({before} -> {after}) across 5 toggles -- tick chain leaking"
+        )
+    finally:
+        app.source.stop()
+        app.root.destroy()
+    print("no-tick-leak self-check OK")
+
+
 if __name__ == "__main__":
     # Hidden re-exec mode (see App._open_dashboard): this same script/exe,
     # spawned as its OWN process so pywebview's start() gets a fresh main
@@ -333,6 +365,8 @@ if __name__ == "__main__":
     if len(sys.argv) == 5 and sys.argv[1] == "--dashboard":
         import dashboard
         dashboard.open_dashboard(sys.argv[2], sys.argv[3], sys.argv[4])
+    elif len(sys.argv) == 2 and sys.argv[1] == "--selfcheck-ticks":
+        _selfcheck_no_tick_leak()
     else:
         _self_check()
         App().run()
