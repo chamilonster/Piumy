@@ -2,6 +2,52 @@
 
 Pimywa doesn't follow semver yet (pre-1.0). Entries are most recent first.
 
+## MCP auth, connection resilience, encrypted backup, Piumy rename, Desktop M1 (2026-07-03 → 2026-07-05)
+
+Consolidated entry for the gap between the CW2015 fix below and this one — the repo's
+git history was squashed on 2026-07-03 (`0e84ac8`), so the individual commits for the
+items below aren't separately visible in `git log`; each was verified directly against
+the current code/contracts before being listed here.
+
+- **MCP auth (fail-closed):** the `:8081` MCP endpoint now rejects every request until
+  a bearer token is configured. `pimywa auth setup` generates + persists
+  `PIMYWA_MCP_KEY` (idempotent); `pimywa auth rotate` always replaces it. Own key,
+  separate from REST's `PIMYWA_API_KEY`.
+- **QR delivery without the panel:** `GET /api/qr.svg` renders the current `qr_data` as
+  an SVG, so the dashboard can show the first-link QR with no e-paper attached.
+- **`resume_connection`:** `POST /api/reconnect` clears `reconnect_paused` and restarts
+  the gateway — wired to the dashboard's "Resume connection" button.
+- **Low-latency agent notification:** `GET /api/events` (SSE) pushes a nudge on every
+  stored inbound message; `get_pending`/`get_queue` remain the source of truth, this is
+  a latency optimization over polling.
+- **Encrypted WhatsApp session backup:** `internal/sessionbackup` — AES-256-GCM
+  (scrypt-derived key), rotated, WAL-safe hot snapshots; `pimywa restore-session`
+  (CLI-only, refuses while `serve` is running unless `--force`).
+- **Rename to "Piumy"** across user-facing strings, MCP/tool comments, and the bridge
+  prompt; default device name updated accordingly.
+- **Dashboard:** live kaomoji face mirror + a battery view (SVG chart, raw vs
+  linearized, charging bands) reading the per-minute discharge log.
+- **Media:** audio (voice notes) download added, alongside the existing image/video/
+  sticker support.
+
+## `tools/desktop/` — Piumy Desktop, M1: floating carita companion (2026-07-05, `aae037d`)
+
+A Windows companion app: a frameless, always-on-top, draggable Tkinter widget showing
+the e-paper panel — reuses `adapters/display/render.py` directly (pixel-identical to
+the real Pi, not a re-implementation) — fed by a sandboxed local copy of the Go core
+(`PIMYWA_GATEWAY=none`, `PIMYWA_DASH=0`, its own temp dir + free ports; no WhatsApp, no
+hardware). Collapsible live log below it (core stdout/stderr). Packaged as a standalone
+`Piumy.exe` via PyInstaller.
+
+- Kills the sandboxed core externally → the panel freezes on the last frame, the log
+  shows the exit, the app itself never crashes (verified by a scripted check, not just
+  visual inspection).
+- Owner feedback from the first live test folded in: panel resized to 25% (native
+  250×122, the original 4× upscale covered other windows), and **Escape** added as a
+  close path that doesn't depend on discovering the right-click menu.
+- M2 (dashboard button, pywebview auto-login) and M3 (Pi source) are separate,
+  not-yet-built subcontracts — their menu entries exist today only as greyed stubs.
+
 ## Post-deployment fix — CW2015 VCELL=0 no longer reports a fake 0% (2026-07-02)
 
 Found while verifying on the real Pi: the CW2015

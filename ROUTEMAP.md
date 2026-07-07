@@ -14,7 +14,12 @@ Status legend: ✅ done & deployed · 🚧 in progress · 🗓️ planned (MVP) 
 - ✅ MCP server — chats/messages/queue + tools (`list_chats`, `get_messages`, `send_message`, `escalate`, `set_mode`, …)
 - ✅ `status.json` state machine (idle/thinking/responding/sleeping/muted/paused/alert/error/qr)
 - ✅ Outbox retry/backoff + dead-letter; queue claim/lock; agent judgment / decision policy
-- 🚧 **MCP auth** — token + terminal installer (the endpoint is open today)
+- ✅ **MCP auth** — bearer token, fail-closed by default; `pimywa auth setup`/`rotate` installer
+- ✅ QR delivery without the panel — `GET /api/qr.svg`
+- ✅ `resume_connection` — `POST /api/reconnect` clears the paused state and restarts the gateway
+- ✅ Low-latency agent notification — SSE (`GET /api/events`)
+- ✅ Encrypted WhatsApp session backup (AES-256-GCM) + `pimywa restore-session`
+- ✅ Media download — images, video, stickers, audio (voice notes)
 
 ## E-paper face (Python display adapter)
 - ✅ Real pwnagotchi **kaomoji** faces (bundled DejaVu, tofu-free on the Pi)
@@ -35,7 +40,12 @@ Status legend: ✅ done & deployed · 🚧 in progress · 🗓️ planned (MVP) 
 - ✅ Status · **Battery** view with SVG chart (raw vs linearized + charging bands) · **live kaomoji face**
 - ✅ WhatsApp link/disconnect · anti-ban mute · settings · rate limits · router/whitelist · rules-by-tier · MCP anti-flood
 - ✅ Dark CSS theme
-- ✅ MCP tool to reset the dashboard password (fail-closed until MCP auth lands)
+- ✅ MCP tool to reset the dashboard password (fail-closed, gated by MCP auth)
+
+## Desktop companion (Windows, `tools/desktop/`)
+- ✅ **M1** — floating carita: frameless always-on-top Tkinter widget, reuses `render.py` (pixel-identical to the e-paper), sandboxed local core, live log, packaged `Piumy.exe` (PyInstaller)
+- 🗓️ M2 — "Open Dashboard" button (pywebview, auto-login)
+- 🗓️ M3 — Pi source (REST + SSH journald) + Local/Pi toggle
 
 ## Client / brain side
 - 🗓️ **Skill** — a Claude Code skill that operates Piumy via the MCP tools (zero install)
@@ -48,12 +58,13 @@ Status legend: ✅ done & deployed · 🚧 in progress · 🗓️ planned (MVP) 
 - 🗓️ `install.sh` "no-plugins" flags (choose adapters per board)
 
 ## MVP finish line
-- 🚧 MCP auth (token + installer)
 - 🗓️ Client skill
 - 🗓️ Public GitHub launch: README + face screenshots + button/battery diagram + dashboard photo + this routemap
 
 ## Post-MVP backlog
-- 🔭 Auto-reply worker (`auto` mode with a cheap API), media + groups, router.json hot-reload
+- 🚧 Auto-reply worker — drafts pending `auto`-mode replies via a pluggable bridge (`direct-api`/DeepSeek); never auto-sends, a draft waits for approval
+- 🔭 Groups as a first-class mode (chat/member sync + message storage already work; routing/whitelist today treats a group JID like any other, no group-specific behavior yet)
+- 🔭 `router.json` hot-reload
 - 🔭 Accelerometer (I2C) as a "picked-it-up" interaction source
 - 🔭 Learned per-contact emoji icons around the face
 - 🔭 WhatsApp official cloud-api gateway adapter (commercial)
