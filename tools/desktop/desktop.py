@@ -11,7 +11,10 @@ REST poll + SSH journald), toggled via the "Source: Local/Pi" menu entry. A
 collapsible live log sits below the panel. "Open Dashboard" opens the LOCAL
 sandbox's own dashboard, auto-logged-in, in a pywebview window (dashboard.py,
 run as its own process -- see `_open_dashboard`); it only applies to
-Source: Local. See DESIGN.md for the full plan.
+Source: Local. A system tray icon (pystray, runs on its own thread -- unlike
+pywebview it has no main-thread restriction on Windows) keeps the app
+reachable after the carita is hidden: show/hide, open dashboard, quit. See
+DESIGN.md for the full plan.
 """
 import json
 import os
@@ -19,9 +22,11 @@ import queue
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import tkinter as tk
 
+import pystray
 from PIL import Image, ImageTk
 
 from sources import LocalSource, PiSource
@@ -69,6 +74,18 @@ def _anim_interval(elapsed: float) -> float:
     return _ANIM_FAST_SEC + (_ANIM_SLOW_SEC - _ANIM_FAST_SEC) * t
 
 
+def _tray_icon_image(status: dict) -> Image.Image:
+    """Crop the kaomoji face out of a real render_image() frame instead of
+    drawing a separate icon -- one source of truth for the face, same rule
+    M1 already follows for the main panel. (90, 65) is render.py's own face
+    centre (_CX, _CY); a 90x90 box around it comfortably contains every
+    KAOMOJI_CATALOG entry without clipping."""
+    img = render_image(status, anim_step=0)
+    cx, cy, half = 90, 65, 45
+    face = img.crop((cx - half, cy - half, cx + half, cy + half)).convert("RGB")
+    return face.resize((32, 32), Image.NEAREST)
+
+
 def _state_path() -> str:
     """Where the last window position is remembered -- %LOCALAPPDATA% so a
     packaged .exe run from anywhere still has a writable spot."""
@@ -96,8 +113,10 @@ class App:
         self._frozen_logged = False
         self._photo = None  # keep a live reference -- Tk drops GC'd images
         self._tick_id = None  # pending self.root.after() for _tick -- see _toggle_source
+        self._visible = True
 
         self._build_ui()
+        self._build_tray()
         self._restore_position()
         self._start_source()
         self._tick()
@@ -138,6 +157,38 @@ class App:
         # menu's grab/focus behavior.
         self.root.bind("<Escape>", lambda e: self._quit())
         self.root.focus_force()
+
+    def _build_tray(self):
+        # pystray callbacks fire on ITS OWN thread (unlike pywebview, no
+        # main-thread restriction on Windows -- verified separately, hence
+        # running it here rather than as a re-exec'd process like
+        # dashboard.py). Tkinter isn't thread-safe, so every callback
+        # marshals the actual work back onto the Tk thread via after(0, ...)
+        # instead of touching self.root/widgets directly.
+        image = _tray_icon_image({"mood": "idle"})
+        tray_menu = pystray.Menu(
+            # default=True: a plain click on the tray icon itself (not just
+            # the menu) also toggles -- the more common gesture, where the
+            # backend supports it (HAS_DEFAULT_ACTION).
+            pystray.MenuItem(
+                "Show/Hide carita", lambda: self.root.after(0, self._toggle_visibility), default=True,
+            ),
+            pystray.MenuItem("Open Dashboard", lambda: self.root.after(0, self._open_dashboard)),
+            pystray.Menu.SEPARATOR,
+            pystray.MenuItem("Quit", lambda: self.root.after(0, self._quit)),
+        )
+        self.tray = pystray.Icon("piumy", image, "Piumy", tray_menu)
+        threading.Thread(target=self.tray.run, daemon=True).start()
+
+    def _toggle_visibility(self):
+        # Hiding here means withdraw(), never destroy() -- the tray icon is
+        # the only way back once the carita (and its right-click Quit) is
+        # gone, so the app must keep running underneath.
+        if self._visible:
+            self.root.withdraw()
+        else:
+            self.root.deiconify()
+        self._visible = not self._visible
 
     def _drag_start(self, event):
         self.root.focus_force()  # keep Escape-to-quit reachable even if focus drifted
@@ -310,6 +361,8 @@ class App:
     def _quit(self):
         self._save_position()
         self.source.stop()
+        self.tray.stop()  # explicit removal -- otherwise the icon can linger as a
+                           # "ghost" in the tray until Windows notices the process died
         self.root.destroy()
 
     def run(self):

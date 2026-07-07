@@ -1,2 +1,3 @@
 Pillow
 pywebview
+pystray
