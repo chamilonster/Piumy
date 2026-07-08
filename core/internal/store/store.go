@@ -4,8 +4,8 @@
 // Package store: switchboard persistence in SQLite (modernc.org/sqlite,
 // pure Go — no cgo, builds and cross-compiles to ARM painlessly).
 //
-// It stores chats (with their auto/advanced mode), messages (including the
-// unhandled "advanced" queue), and the outbox (messages to send, which the
+// It stores chats (with their auto/dedicated mode), messages (including the
+// unhandled "dedicated" queue), and the outbox (messages to send, which the
 // gateway drains while respecting the anti-ban governor).
 package store
 
@@ -274,7 +274,22 @@ func migrate(db *sql.DB) error {
 			return err
 		}
 	}
-	return migrateConfirmationMode(db)
+	if err := migrateConfirmationMode(db); err != nil {
+		return err
+	}
+	return migrateModeRename(db)
+}
+
+// migrateModeRename renames the legacy 'advanced' chat mode value to its
+// current name 'dedicated' (2026-07-08). The concept shifted from "escalate to
+// a fancier model" to "this chat is dedicated to the agent", and 'dedicated'
+// names that accurately. Idempotent: once no 'advanced' rows remain the UPDATE
+// touches zero rows. A router.json still carrying 'advanced' is handled
+// separately (read-alias in router.Load and store.SetMode); this only rewrites
+// persisted chat rows.
+func migrateModeRename(db *sql.DB) error {
+	_, err := db.Exec(`UPDATE chats SET mode = 'dedicated' WHERE mode = 'advanced'`)
+	return err
 }
 
 // migrateConfirmationMode adds chats.confirmation_mode and backfills 1-1
@@ -371,8 +386,14 @@ func isGroupJID(jid string) bool {
 	return strings.HasSuffix(jid, "@g.us")
 }
 
-// SetMode sets a chat's mode (auto | advanced). Creates the chat if missing.
+// SetMode sets a chat's mode (auto | dedicated). Creates the chat if missing.
+// The legacy value 'advanced' (pre-2026-07-08 rename) is accepted as an alias
+// and normalized to 'dedicated' on the way in, so a caller still passing the
+// old name persists the canonical one.
 func (s *Store) SetMode(jid, mode string) error {
+	if mode == "advanced" {
+		mode = "dedicated"
+	}
 	_, err := s.db.Exec(`INSERT INTO chats (jid, mode) VALUES (?, ?)
 		ON CONFLICT(jid) DO UPDATE SET mode = excluded.mode`, jid, mode)
 	return err
@@ -821,9 +842,10 @@ func (s *Store) GetMessages(jid string, limit int) ([]Message, error) {
 	return scanMessages(rows)
 }
 
-// PendingAdvanced returns incoming messages from chats in advanced mode that
-// have not been handled yet (the queue an agent pulls over MCP).
-func (s *Store) PendingAdvanced(limit int) ([]Message, error) {
+// PendingDedicated returns incoming messages from chats in dedicated mode that
+// have not been handled yet (the queue an agent pulls over MCP, or the cAPI
+// push worker forwards to a CleverCoder agent).
+func (s *Store) PendingDedicated(limit int) ([]Message, error) {
 	if limit <= 0 {
 		limit = 20
 	}
@@ -831,7 +853,7 @@ func (s *Store) PendingAdvanced(limit int) ([]Message, error) {
 		COALESCE(m.text,''), m.ts, COALESCE(m.type,''), COALESCE(m.model,''), m.delivered_ts, m.read_ts
 		FROM messages m
 		JOIN chats c ON c.jid = m.chat_jid
-		WHERE m.from_me = 0 AND m.handled = 0 AND c.mode = 'advanced'
+		WHERE m.from_me = 0 AND m.handled = 0 AND c.mode = 'dedicated'
 		ORDER BY m.ts ASC LIMIT ?`, limit)
 	if err != nil {
 		return nil, err
@@ -933,13 +955,13 @@ func (s *Store) MarkSent(seq int64) error {
 	return err
 }
 
-// CountPendingAdvanced returns the total number of unhandled inbound messages
-// in chats that are in "advanced" mode (the queue an agent drains over MCP).
-func (s *Store) CountPendingAdvanced() (int, error) {
+// CountPendingDedicated returns the total number of unhandled inbound messages
+// in chats that are in "dedicated" mode (the queue an agent drains over MCP).
+func (s *Store) CountPendingDedicated() (int, error) {
 	var count int
 	err := s.db.QueryRow(`SELECT COUNT(*) FROM messages m
 		JOIN chats c ON c.jid = m.chat_jid
-		WHERE m.from_me = 0 AND m.handled = 0 AND c.mode = 'advanced'`).Scan(&count)
+		WHERE m.from_me = 0 AND m.handled = 0 AND c.mode = 'dedicated'`).Scan(&count)
 	return count, err
 }
 

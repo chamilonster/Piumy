@@ -188,10 +188,10 @@ func (t *agentTracker) sweep(ctx context.Context) {
 	}
 }
 
-// refreshQueue counts pending advanced messages and updates state.Queue.
+// refreshQueue counts pending dedicated messages and updates state.Queue.
 // Uses plain Update (no mood change) so an in-flight React is not disturbed.
 func refreshQueue(sm *state.Manager, st *store.Store) {
-	count, err := st.CountPendingAdvanced()
+	count, err := st.CountPendingDedicated()
 	if err != nil {
 		log.Printf("mcpserver: count queue: %v", err)
 		return
@@ -296,12 +296,12 @@ func New(ctx context.Context, d Deps) *server.MCPServer {
 
 	// ── get_queue ────────────────────────────────────────────────────────────
 	s.AddTool(mcp.NewTool("get_queue",
-		mcp.WithDescription("Incoming messages in advanced mode waiting for an agent to handle them."),
+		mcp.WithDescription("Incoming messages in dedicated mode waiting for an agent to handle them."),
 		mcp.WithNumber("limit", mcp.DefaultNumber(20))),
 		func(ctx context.Context, r mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			tracker.seen(ctx)
 			_ = d.State.React("working", "on it", 3*time.Second)
-			msgs, err := d.Store.PendingAdvanced(int(r.GetFloat("limit", 20)))
+			msgs, err := d.Store.PendingDedicated(int(r.GetFloat("limit", 20)))
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -426,9 +426,9 @@ func New(ctx context.Context, d Deps) *server.MCPServer {
 
 	// ── set_mode ─────────────────────────────────────────────────────────────
 	s.AddTool(mcp.NewTool("set_mode",
-		mcp.WithDescription("Change a chat's mode: auto (the API replies) or advanced (an agent handles it over MCP)."),
+		mcp.WithDescription("Change a chat's mode: auto (the API replies) or dedicated (an agent handles it, over MCP or pushed via cAPI)."),
 		mcp.WithString("chat_id", mcp.Required()),
-		mcp.WithString("mode", mcp.Required(), mcp.Enum("auto", "advanced"))),
+		mcp.WithString("mode", mcp.Required(), mcp.Enum("auto", "dedicated"))),
 		func(ctx context.Context, r mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			tracker.seen(ctx)
 			jid, err := r.RequireString("chat_id")
@@ -449,7 +449,7 @@ func New(ctx context.Context, d Deps) *server.MCPServer {
 
 	// ── escalate ─────────────────────────────────────────────────────────────
 	s.AddTool(mcp.NewTool("escalate",
-		mcp.WithDescription("Escalate a chat to advanced mode so a more capable agent/model takes it."),
+		mcp.WithDescription("Dedicate a chat to the agent (dedicated mode) so a more capable agent/model takes it."),
 		mcp.WithString("chat_id", mcp.Required())),
 		func(ctx context.Context, r mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			tracker.seen(ctx)
@@ -458,11 +458,11 @@ func New(ctx context.Context, d Deps) *server.MCPServer {
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
-			if err := d.Store.SetMode(jid, "advanced"); err != nil {
+			if err := d.Store.SetMode(jid, "dedicated"); err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 			refreshQueue(d.State, d.Store)
-			return mcp.NewToolResultText("escalated to advanced"), nil
+			return mcp.NewToolResultText("dedicated to the agent"), nil
 		})
 
 	// ── mark_handled ──────────────────────────────────────────────────────────

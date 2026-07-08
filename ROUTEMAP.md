@@ -9,7 +9,7 @@ Status legend: ✅ done & deployed · 🚧 in progress · 🗓️ planned (MVP) 
 ## Core platform (Go switchboard)
 - ✅ WhatsApp gateway (whatsmeow) — connect, session, receive/send
 - ✅ SQLite store — messages, contacts, per-chat state (mode, memory, context, rules)
-- ✅ Router — whitelist + per-number rules + mode (`auto` / `advanced`)
+- ✅ Router — whitelist + per-number rules + mode (`auto` / `dedicated`) + per-route plugin (`clevercoder` / `mcp-agent` / …)
 - ✅ Governor (anti-ban) — rate limits, human pacing, kill switch (mute), reconnect backoff
 - ✅ MCP server — chats/messages/queue + tools (`list_chats`, `get_messages`, `send_message`, `escalate`, `set_mode`, …)
 - ✅ `status.json` state machine (idle/thinking/responding/sleeping/muted/paused/alert/error/qr)

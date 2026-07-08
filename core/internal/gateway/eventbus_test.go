@@ -33,7 +33,7 @@ func newEventBusTestGateway(t *testing.T, chatJID string) *Gateway {
 	t.Cleanup(func() { st.Close() })
 
 	routerPath := filepath.Join(dir, "router.json")
-	cfg := `{"allow_all":false,"default_mode":"advanced","whitelist":["` + chatJID + `"]}`
+	cfg := `{"allow_all":false,"default_mode":"dedicated","whitelist":["` + chatJID + `"]}`
 	if err := os.WriteFile(routerPath, []byte(cfg), 0o644); err != nil {
 		t.Fatal(err)
 	}

@@ -76,7 +76,7 @@ func TestSendMessageRequiresCurrentPolicyVersion(t *testing.T) {
 	defer st.Close()
 
 	routerPath := filepath.Join(dir, "router.json")
-	cfg := `{"allow_all":false,"default_mode":"advanced","whitelist":["56955147132@s.whatsapp.net"]}`
+	cfg := `{"allow_all":false,"default_mode":"dedicated","whitelist":["56955147132@s.whatsapp.net"]}`
 	if err := os.WriteFile(routerPath, []byte(cfg), 0o644); err != nil {
 		t.Fatal(err)
 	}

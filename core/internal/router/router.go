@@ -14,28 +14,47 @@ import (
 
 type Route struct {
 	Match  string `json:"match"`  // exact JID or "*" (catch-all)
-	Mode   string `json:"mode"`   // auto | advanced
-	Plugin string `json:"plugin"` // AI bridge plugin: mcp-agent | direct-api | none
+	Mode   string `json:"mode"`   // auto | dedicated
+	Plugin string `json:"plugin"` // AI bridge plugin: clevercoder | mcp-agent | direct-api | none
 	Model  string `json:"model"`  // model for this chat
 	VIP    bool   `json:"vip"`    // treat this contact as VIP (triggers vip mood on message)
+}
+
+// normalizeMode maps the legacy mode value 'advanced' to its current name
+// 'dedicated' (2026-07-08 rename). Kept as a read-alias so a router.json the
+// owner still hand-wrote with 'advanced' keeps working — nothing downstream
+// ever sees the legacy value. Empty/other values pass through untouched.
+func normalizeMode(m string) string {
+	if m == "advanced" {
+		return "dedicated"
+	}
+	return m
 }
 
 type Config struct {
 	Whitelist   []string `json:"whitelist"`    // allowed JIDs
 	AllowAll    bool     `json:"allow_all"`    // if true, answer anyone (ban risk)
-	DefaultMode string   `json:"default_mode"` // default mode (default: advanced)
+	DefaultMode string   `json:"default_mode"` // default mode (default: dedicated)
 	Routes      []Route  `json:"routes"`
 }
 
 // Load reads router.json. If it does not exist, it returns a safe default
-// (whitelist-only, advanced mode).
+// (whitelist-only, dedicated mode).
 func Load(path string) Config {
-	c := Config{DefaultMode: "advanced"}
+	c := Config{DefaultMode: "dedicated"}
 	if data, err := os.ReadFile(path); err == nil {
 		_ = json.Unmarshal(data, &c)
 	}
 	if c.DefaultMode == "" {
-		c.DefaultMode = "advanced"
+		c.DefaultMode = "dedicated"
+	}
+	// Read-alias: a hand-written router.json may still carry the pre-rename
+	// value 'advanced'. Normalize DefaultMode and every route so nothing
+	// downstream sees the legacy name (the DB rows are migrated separately in
+	// store.migrateModeRename).
+	c.DefaultMode = normalizeMode(c.DefaultMode)
+	for i := range c.Routes {
+		c.Routes[i].Mode = normalizeMode(c.Routes[i].Mode)
 	}
 	return c
 }

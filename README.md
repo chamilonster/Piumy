@@ -20,10 +20,10 @@ WhatsApp (dedicated number)
       ▼
   SWITCHBOARD (Go, tiny board) ── e-paper (Python adapter) → face
    · receives / stores (SQLite)     └ reads status.json
-   · per-chat mode: auto | advanced
+   · per-chat mode: auto | dedicated
    · anti-ban governor · whitelist
    · exposes MCP ──────────────┐
-        │ auto                 │ advanced (queue, pull)
+        │ auto                 │ dedicated (queue, pull)
         ▼                      ▼
    cheap API             AGENT over MCP (another machine with RAM)
    (optional)             Claude / Opus / OpenCode + tools

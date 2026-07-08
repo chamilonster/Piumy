@@ -1,6 +1,6 @@
 ---
 name: piumy
-description: Operate a Piumy WhatsApp switchboard over MCP — triage the advanced-mode queue, read chats, draft/send replies, escalate, set per-chat modes. Use when the user wants to attend WhatsApp messages routed through their Piumy device (the `piumy` MCP server is connected).
+description: Operate a Piumy WhatsApp switchboard over MCP — triage the dedicated-mode queue, read chats, draft/send replies, escalate, set per-chat modes. Use when the user wants to attend WhatsApp messages routed through their Piumy device (the `piumy` MCP server is connected).
 ---
 
 # Operating Piumy 🦉
@@ -16,7 +16,7 @@ The `piumy` MCP server must be configured with the device's URL and Bearer token
 401/unauthorized, the token is missing or wrong.
 
 ## The loop
-1. **`get_pending` / `get_queue`** — what's waiting for a human/agent in advanced mode.
+1. **`get_pending` / `get_queue`** — what's waiting for a human/agent in dedicated mode.
 2. **`list_chats` / `get_chat` / `get_messages`** — read context. The store IS the
    memory: if the contact deletes their chat, the history is still yours.
 3. **Decide** per the chat's rules — **`get_decision_policy`**. THE LAW: never emit
@@ -25,7 +25,7 @@ The `piumy` MCP server must be configured with the device's URL and Bearer token
    (never over MCP).
 4. **Act**: `send_message`, or `get_drafts` → the *confirmer* approves; `escalate`
    (hand a chat to a human), `mark_handled`, `resolve_chat`.
-5. **Manage**: `set_mode` (auto/advanced), `set_chat_status`, `set_chat_context` /
+5. **Manage**: `set_mode` (auto/dedicated), `set_chat_status`, `set_chat_context` /
    `set_chat_memory`, `claim_chat` / `release_chat` (so multi-agent setups don't
    double-attend). `get_status` for device/battery/queue health.
 

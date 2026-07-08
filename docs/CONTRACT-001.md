@@ -18,7 +18,7 @@ ban risk).
 ## Out of scope (next contracts)
 
 - whatsmeow / real WhatsApp connection → **Contract #002** (with a throwaway number + tested governor).
-- Router, whitelist, `auto`/`advanced` modes, queue, `escalate` tool → #002/#003.
+- Router, whitelist, `auto`/`dedicated` modes, queue, `escalate` tool → #002/#003.
 - MCP server + agent connecting → #004.
 - `epaper-waveshare` backend (SPI) on the Pi → #005.
 - CW2015 power adapter (I2C) → #006.

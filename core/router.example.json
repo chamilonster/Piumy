@@ -1,20 +1,20 @@
 {
-  "_comment": "Copy to router.json and adjust. router.json is gitignored (it may contain real phone numbers).",
+  "_comment": "Copy to router.json and adjust. router.json is gitignored (it may contain real phone numbers). 'advanced' is still accepted as an alias for 'dedicated'.",
   "allow_all": false,
-  "default_mode": "advanced",
+  "default_mode": "dedicated",
   "whitelist": [
     "56999999999@s.whatsapp.net"
   ],
   "routes": [
     {
       "match": "56999999999@s.whatsapp.net",
-      "mode": "advanced",
+      "mode": "dedicated",
       "plugin": "mcp-agent",
       "model": "claude-opus-4-8"
     },
     {
       "match": "*",
-      "mode": "advanced",
+      "mode": "dedicated",
       "plugin": "none",
       "model": ""
     }

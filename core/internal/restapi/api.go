@@ -136,9 +136,9 @@ func Handler(d Deps) http.Handler {
 		respond(w, msgs, err)
 	}))
 
-	// GET /api/queue?limit=  (advanced-mode messages awaiting an agent)
+	// GET /api/queue?limit=  (dedicated-mode messages awaiting an agent)
 	mux.HandleFunc("GET /api/queue", d.auth(func(w http.ResponseWriter, r *http.Request) {
-		msgs, err := d.Store.PendingAdvanced(qint(r, "limit", 20))
+		msgs, err := d.Store.PendingDedicated(qint(r, "limit", 20))
 		respond(w, msgs, err)
 	}))
 
@@ -156,17 +156,17 @@ func Handler(d Deps) http.Handler {
 		respond(w, map[string]string{"status": "queued"}, err)
 	}))
 
-	// POST /api/mode {"chat":"...","mode":"auto|advanced"}
+	// POST /api/mode {"chat":"...","mode":"auto|dedicated"}  ('advanced' still accepted as an alias)
 	mux.HandleFunc("POST /api/mode", d.auth(func(w http.ResponseWriter, r *http.Request) {
 		var b struct{ Chat, Mode string }
 		if !decode(w, r, &b) {
 			return
 		}
-		if b.Chat == "" || (b.Mode != "auto" && b.Mode != "advanced") {
-			writeJSON(w, http.StatusBadRequest, errMsg("chat and mode(auto|advanced) required"))
+		if b.Chat == "" || (b.Mode != "auto" && b.Mode != "dedicated" && b.Mode != "advanced") {
+			writeJSON(w, http.StatusBadRequest, errMsg("chat and mode(auto|dedicated) required"))
 			return
 		}
-		err := d.Store.SetMode(b.Chat, b.Mode)
+		err := d.Store.SetMode(b.Chat, b.Mode) // normalizes the 'advanced' alias to 'dedicated'
 		respond(w, map[string]string{"status": "ok", "mode": b.Mode}, err)
 	}))
 
@@ -180,7 +180,7 @@ func Handler(d Deps) http.Handler {
 			writeJSON(w, http.StatusBadRequest, errMsg("chat required"))
 			return
 		}
-		err := d.Store.SetMode(b.Chat, "advanced")
+		err := d.Store.SetMode(b.Chat, "dedicated")
 		respond(w, map[string]string{"status": "escalated"}, err)
 	}))
 

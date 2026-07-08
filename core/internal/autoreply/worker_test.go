@@ -235,7 +235,7 @@ func TestWorkerSkipsIneligibleChats(t *testing.T) {
 	}
 
 	notAuto := "notauto@s.whatsapp.net"
-	setup(notAuto, "advanced", true, "", true)
+	setup(notAuto, "dedicated", true, "", true)
 
 	inactive := "inactive@s.whatsapp.net"
 	setup(inactive, "auto", false, "", true)
