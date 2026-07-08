@@ -550,7 +550,7 @@ func (g *Gateway) onConnected() {
 		jid = g.client.Store.ID.String()
 	}
 	// Get queue depth for the correct resting mood.
-	qCount, qErr := g.msgSt.CountPendingAdvanced()
+	qCount, qErr := g.msgSt.CountPendingDedicated()
 	if qErr != nil {
 		log.Printf("gateway: count queue on connect: %v", qErr)
 	}
@@ -713,8 +713,8 @@ func (g *Gateway) onMessage(evt *events.Message) {
 		// truth — the agent fetches the real text via get_pending/
 		// get_messages, which stay gated exactly as they always were.
 		// Fires for EVERY inbound message regardless of chat mode
-		// (auto/advanced) — filtering "is this actually pending" already
-		// lives in store.PendingChats/PendingAdvanced; duplicating that
+		// (auto/dedicated) — filtering "is this actually pending" already
+		// lives in store.PendingChats/PendingDedicated; duplicating that
 		// logic here would be a second place for it to drift out of sync.
 		b.Publish(eventbus.Event{Type: "message", JID: chatJID, TS: info.Timestamp.Unix()})
 	}
@@ -725,7 +725,7 @@ func (g *Gateway) onMessage(evt *events.Message) {
 	}
 
 	// Recompute queue depth after storing the new message.
-	qCount, qErr := g.msgSt.CountPendingAdvanced()
+	qCount, qErr := g.msgSt.CountPendingDedicated()
 	if qErr != nil {
 		log.Printf("gateway: count queue: %v", qErr)
 	}

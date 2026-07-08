@@ -292,9 +292,9 @@ select.chat-sel:focus,input.msg-in:focus{outline:none;border-color:var(--grn)}
   <div id="send-result" class="send-result"></div>
 </section>
 
-<!-- ── Queue (Advanced) ───────────────────────────────────────── -->
+<!-- ── Queue (Dedicated) ───────────────────────────────────────── -->
 <section>
-  <h2>Queue (Advanced)</h2>
+  <h2>Queue (Dedicated)</h2>
   <div id="queue-list"><span style="color:var(--dim)">Loading…</span></div>
 </section>
 
@@ -666,16 +666,16 @@ function renderChats(chats) {
     return;
   }
   el.innerHTML = chats.map(c => {
-    const adv = c.mode === 'advanced';
-    const nextMode = adv ? 'auto' : 'advanced';
-    const modeLabel = adv ? 'adv → auto' : 'auto → adv';
+    const ded = c.mode === 'dedicated' || c.mode === 'advanced'; // 'advanced' = legacy alias
+    const nextMode = ded ? 'auto' : 'dedicated';
+    const modeLabel = ded ? 'ded → auto' : 'auto → ded';
     return `<div class="chat-item">
       <div class="chat-main">
         <span class="chat-name" title="${esc(c.jid)}">${esc(c.name || c.jid)}</span>
         ${c.description ? `<span class="chat-desc" title="${esc(c.description)}">${esc(c.description)}</span>` : ''}
       </div>
       ${c.unread ? `<span class="badge yel-b" title="Unread">${c.unread}</span>` : ''}
-      <span class="badge ${adv ? 'yel-b' : 'dim-b'}">${esc(c.mode)}</span>
+      <span class="badge ${ded ? 'yel-b' : 'dim-b'}">${esc(c.mode)}</span>
       ${c.group_invite_link ? `<a class="chat-link" href="${esc(c.group_invite_link)}" target="_blank" rel="noopener">invite</a>` : ''}
       <button class="mode-btn" onclick="toggleMode(${JSON.stringify(c.jid)},${JSON.stringify(nextMode)})">${modeLabel}</button>
     </div>`;
@@ -777,7 +777,7 @@ async function resumeConnection() {
   }
 }
 
-// ── Queue (Advanced) ──────────────────────────────────────────────
+// ── Queue (Dedicated) ──────────────────────────────────────────────
 async function fetchQueue() {
   const r = await api('GET', '/api/queue?limit=50');
   if (!r || !r.ok) return;

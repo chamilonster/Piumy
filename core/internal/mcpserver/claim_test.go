@@ -30,7 +30,7 @@ func newClaimTestServer(t *testing.T, claimTTLDefault time.Duration) (*store.Sto
 
 	jid := "56911112222@s.whatsapp.net"
 	routerPath := filepath.Join(dir, "router.json")
-	if err := os.WriteFile(routerPath, []byte(`{"allow_all":false,"default_mode":"advanced","whitelist":["`+jid+`"]}`), 0o644); err != nil {
+	if err := os.WriteFile(routerPath, []byte(`{"allow_all":false,"default_mode":"dedicated","whitelist":["`+jid+`"]}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	rtMgr := router.NewManager(routerPath)

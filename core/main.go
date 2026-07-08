@@ -326,7 +326,7 @@ func runSeed() {
 	}
 	defer st.Close()
 	now := time.Now().Unix()
-	_ = st.SetMode("56999999999@s.whatsapp.net", "advanced")
+	_ = st.SetMode("56999999999@s.whatsapp.net", "dedicated")
 	_ = st.AddMessage(store.Message{ChatJID: "56999999999@s.whatsapp.net", ID: "demo1", Sender: "56999999999", Text: "hi, can you send me the catalog?", TS: now, Type: "text"})
 	_ = st.AddMessage(store.Message{ChatJID: "56988888888@s.whatsapp.net", ID: "demo2", Sender: "56988888888", Text: "hello", TS: now, Type: "text"})
 	fmt.Println("seed OK at", cfg.DBPath)

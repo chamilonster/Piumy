@@ -31,7 +31,7 @@ func TestSendMessageGuardrails(t *testing.T) {
 	defer st.Close()
 
 	routerPath := filepath.Join(dir, "router.json")
-	cfg := `{"allow_all":false,"default_mode":"advanced","whitelist":["56955147132@s.whatsapp.net","12345-67890@g.us","99999-11111@g.us"]}`
+	cfg := `{"allow_all":false,"default_mode":"dedicated","whitelist":["56955147132@s.whatsapp.net","12345-67890@g.us","99999-11111@g.us"]}`
 	if err := os.WriteFile(routerPath, []byte(cfg), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -126,7 +126,7 @@ func TestSendMessageWhitelistGateStillAppliesWithRules(t *testing.T) {
 	defer st.Close()
 
 	routerPath := filepath.Join(dir, "router.json")
-	if err := os.WriteFile(routerPath, []byte(`{"allow_all":false,"default_mode":"advanced","whitelist":[]}`), 0o644); err != nil {
+	if err := os.WriteFile(routerPath, []byte(`{"allow_all":false,"default_mode":"dedicated","whitelist":[]}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	rtMgr := router.NewManager(routerPath)
@@ -176,7 +176,7 @@ func TestSendMessageAllowedViaEffectiveRules(t *testing.T) {
 
 	jid := "56966665555@s.whatsapp.net"
 	routerPath := filepath.Join(dir, "router.json")
-	if err := os.WriteFile(routerPath, []byte(`{"allow_all":false,"default_mode":"advanced","whitelist":["`+jid+`"]}`), 0o644); err != nil {
+	if err := os.WriteFile(routerPath, []byte(`{"allow_all":false,"default_mode":"dedicated","whitelist":["`+jid+`"]}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	rtMgr := router.NewManager(routerPath)
