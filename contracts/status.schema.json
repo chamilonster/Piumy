@@ -23,7 +23,7 @@
     "queue": {
       "type": "integer",
       "minimum": 0,
-      "description": "Advanced-mode messages waiting for an agent. Drives the QUEUE field and the resting mood bucket (0=zero, 1..N=few, >N=swamped)."
+      "description": "Dedicated-mode messages waiting for an agent. Drives the QUEUE field and the resting mood bucket (0=zero, 1..N=few, >N=swamped)."
     },
     "last_msg": {
       "type": "string",
