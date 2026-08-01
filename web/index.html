@@ -138,6 +138,7 @@
     padding:20px 22px;overflow-x:auto;font-size:14px;line-height:1.75;margin:0;color:var(--dim);
   }
   .note{max-width:52ch;color:var(--dim)}
+  .filename{font-family:var(--mono);font-size:14px;color:var(--dim);margin:0 0 8px}
   .note strong{color:var(--amber);font-weight:650}
 
   .pisplit{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:56px;align-items:center}
@@ -481,20 +482,21 @@
       <div>
         <ol class="en">
           <li>Install Piumy and create your password.</li>
-          <li>Add the MCP server to your agent, with the settings on the right.</li>
+          <li>Add the MCP server to your agent. In CleverCoder just ask it to &mdash; it writes <code>.mcp.json</code> itself.</li>
           <li>Open a terminal and tell it to connect cAPI (CleverCoder) with Piumy. Takes about a minute.</li>
           <li>Scan the QR to link WhatsApp.</li>
           <li>Mark your own number as the owner.</li>
         </ol>
         <ol class="es">
           <li>Instala Piumy y crea tu contraseña.</li>
-          <li>Agrega el servidor MCP a tu agente, con la configuración de al lado.</li>
+          <li>Agrega el servidor MCP a tu agente. En CleverCoder basta con pedírselo: escribe él mismo el <code>.mcp.json</code>.</li>
           <li>Abre un terminal y dile que conecte cAPI (CleverCoder) con Piumy. Toma cerca de un minuto.</li>
           <li>Activa el QR para vincular WhatsApp.</li>
           <li>Marca tu propio número como dueño.</li>
         </ol>
       </div>
       <div>
+        <p class="filename">.mcp.json</p>
 <pre>{
   "mcpServers": {
     "piumy": {
