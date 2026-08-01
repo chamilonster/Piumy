@@ -13,11 +13,14 @@
 <link rel="icon" href="img/piumy.ico" sizes="any">
 <script>
   (function () {
-    var saved = null;
-    try { saved = localStorage.getItem('piumy-lang'); } catch (e) {}
-    var lang = saved || ((navigator.language || 'en').toLowerCase().indexOf('es') === 0 ? 'es' : 'en');
+    var lang, theme;
+    try { lang = localStorage.getItem('piumy-lang'); theme = localStorage.getItem('piumy-theme'); } catch (e) {}
+    lang = lang || ((navigator.language || 'en').toLowerCase().indexOf('es') === 0 ? 'es' : 'en');
+    if (!theme) {
+      theme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
+    }
     document.documentElement.lang = lang;
-    document.documentElement.className = 'lang-' + lang;
+    document.documentElement.className = 'lang-' + lang + ' ' + theme;
   })();
 </script>
 <style>
@@ -30,9 +33,24 @@
     --line:#1a2620;
     --panel:#0c1310;
     --panel2:#0f1814;
-    /* two voices: the person speaks in sans, the machine in mono */
+    --wire-hold:#3a3320;
+    --btn-ink:#06120b;
+    --white:#ffffff;
     --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI Variable Display","Segoe UI",Avenir,"Helvetica Neue",sans-serif;
     --mono:ui-monospace,"SF Mono",SFMono-Regular,"Cascadia Code","Fira Code",Menlo,Consolas,monospace;
+  }
+  html.light{
+    --bg:#eef1ee;
+    --ink:#13211a;
+    --dim:#5a7566;
+    --green:#15803d;
+    --amber:#a16207;
+    --line:#ccd6cf;
+    --panel:#ffffff;
+    --panel2:#f7faf8;
+    --wire-hold:#d8c9a4;
+    --btn-ink:#ffffff;
+    --white:#13211a;
   }
   *{box-sizing:border-box}
   html{-webkit-text-size-adjust:100%}
@@ -42,6 +60,7 @@
     -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
   }
   .lang-en .es,.lang-es .en{display:none}
+  html.light .dark-only,html.dark .light-only{display:none}
   .wrap{max-width:1180px;margin:0 auto;padding:0 36px}
   h1,h2{margin:0;font-weight:650;letter-spacing:-0.03em;line-height:1.3}
   h1{font-size:clamp(2.1rem,4.4vw,3.2rem)}
@@ -52,7 +71,7 @@
   a:hover{border-bottom-color:var(--green)}
   a:focus-visible,button:focus-visible{outline:2px solid var(--green);outline-offset:3px;border-radius:2px}
   .dim{color:var(--dim)}
-  strong{color:#fff;font-weight:650}
+  strong{color:var(--white);font-weight:650}
   /* the machine's voice */
   .mono,.meta,.legend,pre,.langsw,.word,.logo,footer{font-family:var(--mono)}
 
@@ -73,9 +92,9 @@
   .btn{
     display:inline-block;padding:13px 24px;border-radius:5px;
     font-family:var(--sans);font-size:18px;font-weight:650;letter-spacing:-0.01em;
-    border:1px solid var(--green);background:var(--green);color:#06120b;cursor:pointer;
+    border:1px solid var(--green);background:var(--green);color:var(--btn-ink);cursor:pointer;
   }
-  .btn:hover{background:#3fca70;border-color:#3fca70}
+  .btn:hover{filter:brightness(1.08)}
   .steps{display:flex;flex-direction:column;align-items:stretch;gap:6px;margin-top:22px;max-width:340px}
   .steps .btn{text-align:center;justify-content:center}
   .arrow{color:var(--dim);text-align:center;font-family:var(--mono);line-height:1}
@@ -98,7 +117,7 @@
   .legend i{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:8px;vertical-align:middle}
   .legend .go{background:var(--green)}
   .legend .hold{background:var(--amber)}
-  .legend .you{background:#fff}
+  .legend .you{background:var(--white)}
 
   section{padding:84px 0;border-top:1px solid var(--line)}
   .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:34px 52px;align-items:start}
@@ -136,11 +155,11 @@
   .d-agent.mine{stroke:var(--green)}
   .d-agent.dash{stroke:var(--line);stroke-dasharray:5 4;fill:none}
   .wire{fill:none;stroke:var(--line);stroke-width:1.5}
-  .wire.hold{stroke:#3a3320}
+  .wire.hold{stroke:var(--wire-hold)}
   .wire.mine{stroke:rgba(74,222,128,.45)}
   svg text{font-family:var(--mono)}
   .t-univ{font-size:13px;fill:var(--dim);letter-spacing:.05em}
-  .t-set{font-size:15px;fill:#fff;font-weight:700;letter-spacing:-0.01em}
+  .t-set{font-size:15px;fill:var(--white);font-weight:700;letter-spacing:-0.01em}
   .t-sub{font-size:13px;fill:var(--dim)}
   .t-sub.hold{fill:var(--amber)}
   .t-core{font-size:17px;fill:var(--green);font-weight:700;letter-spacing:.06em}
@@ -165,7 +184,7 @@
   .msg.in{fill:var(--dim)}
   .msg.go{fill:var(--green)}
   .msg.hold{fill:var(--amber)}
-  .msg.you{fill:#fff}
+  .msg.you{fill:var(--white)}
 
   @media (max-width:900px){
     .hero{grid-template-columns:1fr;gap:18px;align-items:start}
@@ -189,6 +208,7 @@
     <span class="logo" id="face">(◕‿◕)</span>
     <span class="word">Piumy</span>
     <span class="sp"></span>
+    <button class="langsw" id="themesw" type="button" aria-label="theme"><span class="dark-only">&#9788;</span><span class="light-only">&#9789;</span></button>
     <button class="langsw" id="langsw" type="button"><span class="en">ES</span><span class="es">EN</span></button>
   </div>
 
@@ -515,10 +535,19 @@
 
 <script>
 (function () {
+  document.getElementById('themesw').addEventListener('click', function () {
+    var el = document.documentElement;
+    var next = el.classList.contains('light') ? 'dark' : 'light';
+    el.classList.remove('light', 'dark');
+    el.classList.add(next);
+    try { localStorage.setItem('piumy-theme', next); } catch (e) {}
+  });
+
   document.getElementById('langsw').addEventListener('click', function () {
     var next = document.documentElement.lang === 'es' ? 'en' : 'es';
     document.documentElement.lang = next;
-    document.documentElement.className = 'lang-' + next;
+    var theme = document.documentElement.classList.contains('light') ? 'light' : 'dark';
+    document.documentElement.className = 'lang-' + next + ' ' + theme;
     try { localStorage.setItem('piumy-lang', next); } catch (e) {}
   });
 
