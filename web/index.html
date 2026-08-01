@@ -125,8 +125,10 @@
   .cols.four{grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:26px 40px}
   .cols h3{margin:0;font-size:18px;color:var(--white);font-weight:650;line-height:1.45;letter-spacing:-0.01em}
   .cols p{color:var(--dim);font-size:14px;margin:2px 0 0}
+  .cols h3.soon{color:var(--green)}
   #truth .cols p,#truth .note{font-size:18px}
   .item+.item{margin-top:26px}
+  .cols>.item+.item{margin-top:0}
 
   ol{padding-left:1.3em;margin:0;color:var(--dim)}
   ol li{margin-bottom:12px;max-width:46ch}
@@ -497,8 +499,12 @@
     <h2><span class="en">What's coming</span><span class="es">Lo que viene</span></h2>
     <div class="cols">
       <div class="item">
-        <h3>macOS · Linux</h3>
+        <h3 class="soon">macOS &#183; Linux</h3>
         <p><span class="en">The engine already builds for both. What's missing is the packaging.</span><span class="es">El motor ya compila para ambos. Falta el empaquetado.</span></p>
+      </div>
+      <div class="item">
+        <h3 class="soon">Raspberry Pi Zero &#183; e&#8209;paper</h3>
+        <p><span class="en">A dedicated device that never sleeps and doesn't need your computer on.</span><span class="es">Un aparato dedicado que nunca duerme y no necesita tu computador encendido.</span></p>
       </div>
       <div class="item">
         <h3><span class="en">Free, and staying free</span><span class="es">Gratis, y seguirá siéndolo</span></h3>
