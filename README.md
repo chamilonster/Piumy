@@ -1,9 +1,40 @@
 # Piumy 🦉
 
-A **distributed, portable** WhatsApp assistant for ARM64 boards. A tiny board
-**routes and stores** (the *switchboard*); the brain (AI) connects over **MCP**
-from a machine with RAM. Everything hardware-specific lives behind **configurable
-adapters**, so the same code runs on any ARM64 board.
+Your WhatsApp, **routed and stored** by a switchboard that never thinks; the
+brain (your AI) connects over **MCP** and answers. Everything hardware-specific
+lives behind **configurable adapters**, so the same core runs on a board or on
+your PC.
+
+## Three things, and they are not the same
+
+| | What it is | Does it answer WhatsApp? | Where it runs |
+|---|---|---|---|
+| **Piumy for Windows** `0.1.1` | The full switchboard as a **CleverCoder plugin**. One installer: it generates its own keys, asks for a password, and ends on the QR to link WhatsApp. No hardware needed. | **Yes** — this *is* the gateway | Your Windows PC |
+| **Piumy Pi** | The full switchboard on a **Raspberry Pi Zero 2 W** with a 2.13" e-paper face, UPS battery, always on, sipping power. The original edition. | **Yes** — this *is* the gateway | A board you hold in your hand |
+| **Piumy Desktop** | A floating, always-on-top widget that **shows** the e-paper face on your desktop, using the same renderer the Pi uses. Right-click switches between a local sandbox and your real Pi (read-only, over REST + SSH). It has an "Open Dashboard" button that logs you in by itself. | **No** — it's a window into a Piumy running elsewhere | Your desktop, next to whatever you're doing |
+
+**The distinction that matters:** *Windows* and *Pi* **are** the gateway — they
+hold WhatsApp, the database and the rules. *Desktop* is a **view** of one: it
+watches and opens the dashboard, it never answers a message. Running Desktop
+alone gives you a face and nothing behind it.
+
+## An add-on for CleverCoder
+
+Piumy is now a **plugin for [clevercoder.app](https://clevercoder.app)**. If you
+already work with agents there, this hands them your WhatsApp: your chats reach
+the same agents you use every day, over MCP, under rules you write per
+conversation. You install it once and point your agent at it — no account to
+create, no service in the middle, nothing leaving your machine.
+
+It still works standalone with any MCP client (Claude Code, OpenCode, your own).
+CleverCoder is where it fits best, not a requirement.
+
+## Platforms
+
+- **Windows** — available now ([download](https://github.com/chamilonster/Piumy/releases/latest)).
+- **macOS and Linux** — coming soon. The core already builds for both
+  (`CGO_ENABLED=0`, pure Go); what's missing is the packaging, not the engine.
+- **Raspberry Pi** — the hardware edition, returning alongside them.
 
 > ## (⌐■_■) pwnagotchi has pwned hehehe
 > Piumy's e-paper face is a homage to **[pwnagotchi](https://github.com/evilsocket/pwnagotchi)**
