@@ -161,7 +161,10 @@
   .wire.hold{stroke:var(--wire-hold)}
   .wire.mine{stroke:color-mix(in srgb, var(--green) 50%, transparent)}
   svg text{font-family:var(--mono)}
-  .t-univ{font-size:13px;fill:var(--dim);letter-spacing:.05em}
+  .ico{fill:none;stroke:var(--dim);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+  .ico.mine{stroke:var(--green)}
+  .ico.dim{stroke:var(--dim);opacity:.8}
+  .t-univ{font-size:15px;fill:var(--white);letter-spacing:.02em;font-weight:700}
   .t-set{font-size:15px;fill:var(--white);font-weight:700;letter-spacing:-0.01em}
   .t-sub{font-size:13px;fill:var(--dim)}
   .t-sub.hold{fill:var(--amber)}
@@ -247,41 +250,43 @@
   </div>
 
   <div class="stage">
-    <svg viewBox="0 0 1120 700" role="img" aria-labelledby="dt dd">
+    <svg viewBox="0 0 1120 740" role="img" aria-labelledby="dt dd">
       <title id="dt"><tspan class="en">How Piumy routes your conversations</tspan><tspan class="es">C&#243;mo Piumy reparte tus conversaciones</tspan></title>
-      <desc id="dd"><tspan class="en">You sit above Piumy, a WhatsApp server on your machine. Customers, your team, dedicated contacts and your friends write from the left; Piumy hands each kind of chat to a different AI on the right, and stores everything in a local backup below.</tspan><tspan class="es">T&#250; est&#225;s sobre Piumy, un servidor de WhatsApp en tu m&#225;quina. Clientes, tu equipo, contactos dedicados y tus amigos escriben desde la izquierda; Piumy entrega cada tipo de chat a una IA distinta a la derecha, y guarda todo en un respaldo local abajo.</tspan></desc>
+      <desc id="dd"><tspan class="en">On the left, WhatsApp split into subsets: customers, your team, dedicated contacts, friends and family. In the middle, Piumy, a server on your machine that receives, routes and keeps a local backup. On the right, inside CleverCoder, one AI per kind of chat. Outside it, an optional secondary admin who can only approve.</tspan><tspan class="es">A la izquierda, WhatsApp dividido en subconjuntos: clientes, tu equipo, contactos dedicados, amigos y familia. Al medio, Piumy, un servidor en tu m&#225;quina que recibe, reparte y guarda un respaldo local. A la derecha, dentro de CleverCoder, una IA por tipo de chat. Fuera de &#233;l, un administrador secundario opcional que solo puede aprobar.</tspan></desc>
       <defs>
-        <path id="w1" d="M340 180 C 384 180, 404 316, 430 316"/>
-        <path id="w2" d="M340 316 C 384 316, 404 328, 430 328"/>
-        <path id="w3" d="M340 452 C 384 452, 404 340, 430 340"/>
-        <path id="w4" d="M340 588 C 384 588, 404 352, 430 352"/>
-        <path id="x1" d="M690 316 C 726 316, 744 171, 780 171"/>
-        <path id="x2" d="M690 328 C 726 328, 744 289, 780 289"/>
-        <path id="x3" d="M690 340 C 726 340, 744 407, 780 407"/>
-        <path id="x4" d="M690 352 C 726 352, 744 525, 780 525"/>
+        <symbol id="i-bag" viewBox="0 0 24 24"><path d="M6 3 3.5 7.5V20h17V7.5L18 3H6Z M3.5 7.5h17 M15.5 11a3.5 3.5 0 0 1-7 0"/></symbol>
+        <symbol id="i-users" viewBox="0 0 24 24"><path d="M15.5 20v-1.8a3.6 3.6 0 0 0-3.6-3.6H6.1A3.6 3.6 0 0 0 2.5 18.2V20 M9 11.4a3.45 3.45 0 1 0 0-6.9 3.45 3.45 0 0 0 0 6.9 M21.5 20v-1.8a3.6 3.6 0 0 0-2.7-3.5 M16.3 4.6a3.45 3.45 0 0 1 0 6.7"/></symbol>
+        <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3.2l2.7 5.5 6.1.9-4.4 4.3 1 6-5.4-2.9-5.4 2.9 1-6L3.2 9.6l6.1-.9L12 3.2Z"/></symbol>
+        <symbol id="i-heart" viewBox="0 0 24 24"><path d="M20.4 5.6a5.2 5.2 0 0 0-7.4 0L12 6.6l-1-1a5.2 5.2 0 1 0-7.4 7.4l8.4 8.4 8.4-8.4a5.2 5.2 0 0 0 0-7.4Z"/></symbol>
+        <symbol id="i-crown" viewBox="0 0 24 24"><path d="M3 18h18 M3.5 7.5 8 12l4-6.5 4 6.5 4.5-4.5L19 18H5L3.5 7.5Z"/></symbol>
+        <symbol id="i-user" viewBox="0 0 24 24"><path d="M19 20v-1.9a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4V20 M12 10.4a3.7 3.7 0 1 0 0-7.4 3.7 3.7 0 0 0 0 7.4"/></symbol>
+        <symbol id="i-cpu" viewBox="0 0 24 24"><path d="M6.5 6.5h11v11h-11z M9.5 9.5h5v5h-5z M12 2.5v4 M12 17.5v4 M2.5 12h4 M17.5 12h4"/></symbol>
+        <path id="w1" d="M340 192 C 384 192, 404 316, 430 316"/>
+        <path id="w2" d="M340 328 C 384 328, 404 328, 430 328"/>
+        <path id="w3" d="M340 464 C 384 464, 404 340, 430 340"/>
+        <path id="w4" d="M340 600 C 384 600, 404 352, 430 352"/>
+        <path id="x1" d="M690 316 C 726 316, 744 221, 780 221"/>
+        <path id="x2" d="M690 328 C 726 328, 744 339, 780 339"/>
+        <path id="x3" d="M690 340 C 726 340, 744 457, 780 457"/>
+        <path id="x4" d="M690 352 C 726 352, 744 575, 780 575"/>
         <path id="cord" d="M560 386 L 560 452"/>
         <path id="up" d="M560 130 L 560 218"/>
       </defs>
       <rect class="d-core mine" x="430" y="44" width="260" height="86" rx="10"/>
-      <text class="t-set t-mine" x="560" y="80" text-anchor="middle"><tspan class="en">You</tspan><tspan class="es">T&#250;</tspan></text>
-      <text class="t-sub" x="560" y="104" text-anchor="middle"><tspan class="en">owner of the account</tspan><tspan class="es">due&#241;o de la cuenta</tspan></text>
+      <use class="ico mine" href="#i-crown" x="452" y="60" width="22" height="22"/>
+      <text class="t-set t-mine" x="484" y="78"><tspan class="en">You</tspan><tspan class="es">T&#250;</tspan></text>
+      <text class="t-sub" x="452" y="106"><tspan class="en">owner of the account</tspan><tspan class="es">due&#241;o de la cuenta</tspan></text>
       <line class="wire mine" x1="560" y1="130" x2="560" y2="218"/>
       <text class="t-node" x="560" y="200" text-anchor="middle"><tspan class="en">your WhatsApp is a live node now</tspan><tspan class="es">tu WhatsApp ahora es un nodo activo</tspan></text>
-      <text class="t-univ" x="0" y="26"><tspan class="en">YOUR WHATSAPP</tspan><tspan class="es">TU WHATSAPP</tspan></text>
-      <rect class="d-univ" x="0" y="100" width="340" height="568" rx="12"/>
+      <text class="t-univ" x="0" y="26">WhatsApp</text>
+      <rect class="d-univ" x="0" y="112" width="340" height="568" rx="12"/>
       <g>
-        <rect class="d-set" x="16" y="118" width="308" height="124" rx="8"/>
-        <text class="t-set" x="36" y="148"><tspan class="en">Customers</tspan><tspan class="es">Clientes</tspan></text>
-        <text class="t-sub" x="36" y="170"><tspan class="en">they ask, they buy, they get help</tspan><tspan class="es">preguntan, compran, son asistidos</tspan></text>
-        <text class="t-count" x="36" y="220">128</text>
+        <rect class="d-set" x="16" y="130" width="308" height="124" rx="8"/>
+        <use class="ico" href="#i-bag" x="36" y="144" width="20" height="20"/>
+        <text class="t-set" x="66" y="160"><tspan class="en">Customers</tspan><tspan class="es">Clientes</tspan></text>
+        <text class="t-sub" x="36" y="186"><tspan class="en">they ask, they buy, they get help</tspan><tspan class="es">preguntan, compran, son asistidos</tspan></text>
+        <text class="t-count" x="36" y="236">128</text>
         <g class="chat">
-          <circle cx="308" cy="206" r="4"/>
-          <circle cx="292" cy="206" r="4"/>
-          <circle cx="276" cy="206" r="4"/>
-          <circle cx="260" cy="206" r="4"/>
-          <circle cx="244" cy="206" r="4"/>
-          <circle cx="228" cy="206" r="4"/>
-          <circle cx="212" cy="206" r="4"/>
           <circle cx="308" cy="222" r="4"/>
           <circle cx="292" cy="222" r="4"/>
           <circle cx="276" cy="222" r="4"/>
@@ -289,56 +294,66 @@
           <circle cx="244" cy="222" r="4"/>
           <circle cx="228" cy="222" r="4"/>
           <circle cx="212" cy="222" r="4"/>
+          <circle cx="308" cy="238" r="4"/>
+          <circle cx="292" cy="238" r="4"/>
+          <circle cx="276" cy="238" r="4"/>
+          <circle cx="260" cy="238" r="4"/>
+          <circle cx="244" cy="238" r="4"/>
+          <circle cx="228" cy="238" r="4"/>
+          <circle cx="212" cy="238" r="4"/>
         </g>
       </g>
       <g>
-        <rect class="d-set" x="16" y="254" width="308" height="124" rx="8"/>
-        <text class="t-set" x="36" y="284"><tspan class="en">Your team</tspan><tspan class="es">Tu equipo</tspan></text>
-        <text class="t-sub" x="36" y="306"><tspan class="en">groups, coordination, requests</tspan><tspan class="es">grupos, coordinaci&#243;n, solicitudes</tspan></text>
-        <text class="t-count" x="36" y="356">9</text>
+        <rect class="d-set" x="16" y="266" width="308" height="124" rx="8"/>
+        <use class="ico" href="#i-users" x="36" y="280" width="20" height="20"/>
+        <text class="t-set" x="66" y="296"><tspan class="en">Your team</tspan><tspan class="es">Tu equipo</tspan></text>
+        <text class="t-sub" x="36" y="322"><tspan class="en">groups, coordination, requests</tspan><tspan class="es">grupos, coordinaci&#243;n, solicitudes</tspan></text>
+        <text class="t-count" x="36" y="372">9</text>
         <g class="chat">
-          <circle cx="308" cy="342" r="4"/>
-          <circle cx="292" cy="342" r="4"/>
-          <circle cx="276" cy="342" r="4"/>
-          <circle cx="260" cy="342" r="4"/>
-          <circle cx="244" cy="342" r="4"/>
-          <circle cx="228" cy="342" r="4"/>
-          <circle cx="212" cy="342" r="4"/>
           <circle cx="308" cy="358" r="4"/>
+          <circle cx="292" cy="358" r="4"/>
+          <circle cx="276" cy="358" r="4"/>
+          <circle cx="260" cy="358" r="4"/>
+          <circle cx="244" cy="358" r="4"/>
+          <circle cx="228" cy="358" r="4"/>
+          <circle cx="212" cy="358" r="4"/>
+          <circle cx="308" cy="374" r="4"/>
         </g>
       </g>
       <g>
-        <rect class="d-set" x="16" y="390" width="308" height="124" rx="8"/>
-        <text class="t-set" x="36" y="420"><tspan class="en">Dedicated contacts</tspan><tspan class="es">Contactos dedicados</tspan></text>
-        <text class="t-sub" x="36" y="442"><tspan class="en">specialised treatment, their own rules</tspan><tspan class="es">trato especializado, reglas propias</tspan></text>
-        <text class="t-count" x="36" y="492">6</text>
+        <rect class="d-set" x="16" y="402" width="308" height="124" rx="8"/>
+        <use class="ico" href="#i-star" x="36" y="416" width="20" height="20"/>
+        <text class="t-set" x="66" y="432"><tspan class="en">Dedicated contacts</tspan><tspan class="es">Contactos dedicados</tspan></text>
+        <text class="t-sub" x="36" y="458"><tspan class="en">specialised treatment, their own rules</tspan><tspan class="es">trato especializado, reglas propias</tspan></text>
+        <text class="t-count" x="36" y="508">6</text>
         <g class="chat">
-          <circle cx="308" cy="478" r="4"/>
-          <circle cx="292" cy="478" r="4"/>
-          <circle cx="276" cy="478" r="4"/>
-          <circle cx="260" cy="478" r="4"/>
-          <circle cx="244" cy="478" r="4"/>
-          <circle cx="228" cy="478" r="4"/>
+          <circle cx="308" cy="494" r="4"/>
+          <circle cx="292" cy="494" r="4"/>
+          <circle cx="276" cy="494" r="4"/>
+          <circle cx="260" cy="494" r="4"/>
+          <circle cx="244" cy="494" r="4"/>
+          <circle cx="228" cy="494" r="4"/>
         </g>
       </g>
       <g>
-        <rect class="d-set mine" x="16" y="526" width="308" height="124" rx="8"/>
-        <text class="t-set" x="36" y="556"><tspan class="en">Friends and family</tspan><tspan class="es">Amigos y familia</tspan></text>
-        <text class="t-sub" x="36" y="578"><tspan class="en">invitations, news, a hand</tspan><tspan class="es">invitaciones, noticias, asistencia</tspan></text>
-        <text class="t-tag you" x="36" y="602"><tspan class="en">&#10003; you answer these yourself</tspan><tspan class="es">&#10003; a estos los atiendes t&#250;</tspan></text>
-        <text class="t-count" x="36" y="628">43</text>
+        <rect class="d-set mine" x="16" y="538" width="308" height="124" rx="8"/>
+        <use class="ico mine" href="#i-heart" x="36" y="552" width="20" height="20"/>
+        <text class="t-set" x="66" y="568"><tspan class="en">Friends and family</tspan><tspan class="es">Amigos y familia</tspan></text>
+        <text class="t-sub" x="36" y="594"><tspan class="en">invitations, news, a hand</tspan><tspan class="es">invitaciones, noticias, asistencia</tspan></text>
+        <text class="t-tag you" x="36" y="616"><tspan class="en">&#10003; you answer these yourself</tspan><tspan class="es">&#10003; a estos los atiendes t&#250;</tspan></text>
+        <text class="t-count" x="36" y="644">43</text>
         <g class="chat">
-          <circle cx="308" cy="614" r="4"/>
-          <circle cx="292" cy="614" r="4"/>
-          <circle cx="276" cy="614" r="4"/>
-          <circle cx="260" cy="614" r="4"/>
-          <circle cx="244" cy="614" r="4"/>
-          <circle cx="228" cy="614" r="4"/>
-          <circle cx="212" cy="614" r="4"/>
           <circle cx="308" cy="630" r="4"/>
           <circle cx="292" cy="630" r="4"/>
           <circle cx="276" cy="630" r="4"/>
           <circle cx="260" cy="630" r="4"/>
+          <circle cx="244" cy="630" r="4"/>
+          <circle cx="228" cy="630" r="4"/>
+          <circle cx="212" cy="630" r="4"/>
+          <circle cx="308" cy="646" r="4"/>
+          <circle cx="292" cy="646" r="4"/>
+          <circle cx="276" cy="646" r="4"/>
+          <circle cx="260" cy="646" r="4"/>
         </g>
       </g>
       <g class="wire"><use href="#w1"/><use href="#w3"/><use href="#w4"/></g>
@@ -359,38 +374,45 @@
       <g class="wire"><use href="#x2"/><use href="#x4"/></g>
       <g class="wire hold"><use href="#x3"/></g>
       <g class="wire mine"><use href="#x1"/></g>
-      <text class="t-univ" x="780" y="26"><tspan class="en">ONE AI PER KIND OF CHAT</tspan><tspan class="es">UNA IA POR TIPO DE CHAT</tspan></text>
+      <text class="t-univ" x="780" y="26">CleverCoder</text>
+      <text class="t-sub" x="780" y="48"><tspan class="en">one AI per kind of chat</tspan><tspan class="es">una IA por tipo de chat</tspan></text>
+      <rect class="d-univ" x="780" y="150" width="340" height="496" rx="12"/>
       <g>
-        <rect class="d-agent mine" x="780" y="118" width="340" height="106" rx="8"/>
-        <text class="t-kind" x="802" y="144"><tspan class="en">YOUR PERSONAL ASSISTANT</tspan><tspan class="es">TU ASISTENTE PERSONAL</tspan></text>
-        <text class="t-set t-mine" x="802" y="172">Opus</text>
-        <text class="t-sub" x="802" y="194"><tspan class="en">orchestrates, manages, supervises</tspan><tspan class="es">orquesta, gestiona y supervisa</tspan></text>
+        <rect class="d-agent mine" x="796" y="168" width="308" height="106" rx="8"/>
+        <text class="t-kind" x="816" y="194"><tspan class="en">YOUR PERSONAL ASSISTANT</tspan><tspan class="es">TU ASISTENTE PERSONAL</tspan></text>
+        <use class="ico mine" href="#i-cpu" x="816" y="206" width="20" height="20"/>
+        <text class="t-set t-mine" x="846" y="222">Opus</text>
+        <text class="t-sub" x="816" y="246"><tspan class="en">orchestrates, manages, supervises</tspan><tspan class="es">orquesta, gestiona y supervisa</tspan></text>
       </g>
       <g>
-        <rect class="d-agent" x="780" y="236" width="340" height="106" rx="8"/>
-        <text class="t-kind" x="802" y="262"><tspan class="en">NEW CHATS</tspan><tspan class="es">CHATS NUEVOS</tspan></text>
-        <text class="t-set" x="802" y="290">DeepSeek</text>
-        <text class="t-sub" x="802" y="312"><tspan class="en">clear, honest, effective salesperson</tspan><tspan class="es">vendedor claro, honesto, eficaz</tspan></text>
-        <text class="t-tag go" x="802" y="332"><tspan class="en">&#9679; answers on its own</tspan><tspan class="es">&#9679; responde solo</tspan></text>
+        <rect class="d-agent" x="796" y="286" width="308" height="106" rx="8"/>
+        <text class="t-kind" x="816" y="312"><tspan class="en">NEW CHATS</tspan><tspan class="es">CHATS NUEVOS</tspan></text>
+        <use class="ico" href="#i-cpu" x="816" y="324" width="20" height="20"/>
+        <text class="t-set" x="846" y="340">DeepSeek</text>
+        <text class="t-sub" x="816" y="364"><tspan class="en">clear, honest, effective salesperson</tspan><tspan class="es">vendedor claro, honesto, eficaz</tspan></text>
+        <text class="t-tag go" x="816" y="384"><tspan class="en">&#9679; answers on its own</tspan><tspan class="es">&#9679; responde solo</tspan></text>
       </g>
       <g>
-        <rect class="d-agent" x="780" y="354" width="340" height="106" rx="8"/>
-        <text class="t-kind" x="802" y="380"><tspan class="en">CHATS FROM CONTACTS</tspan><tspan class="es">CHATS DE CONTACTOS</tspan></text>
-        <text class="t-set" x="802" y="408">Kimi</text>
-        <text class="t-sub" x="802" y="430"><tspan class="en">assistant and coordinator</tspan><tspan class="es">asistente y coordinador</tspan></text>
-        <text class="t-tag hold" x="802" y="450"><tspan class="en">&#9679; waits for approval</tspan><tspan class="es">&#9679; espera aprobaci&#243;n</tspan></text>
+        <rect class="d-agent" x="796" y="404" width="308" height="106" rx="8"/>
+        <text class="t-kind" x="816" y="430"><tspan class="en">CHATS FROM CONTACTS</tspan><tspan class="es">CHATS DE CONTACTOS</tspan></text>
+        <use class="ico" href="#i-cpu" x="816" y="442" width="20" height="20"/>
+        <text class="t-set" x="846" y="458">Kimi</text>
+        <text class="t-sub" x="816" y="482"><tspan class="en">assistant and coordinator</tspan><tspan class="es">asistente y coordinador</tspan></text>
+        <text class="t-tag hold" x="816" y="502"><tspan class="en">&#9679; waits for approval</tspan><tspan class="es">&#9679; espera aprobaci&#243;n</tspan></text>
       </g>
       <g>
-        <rect class="d-agent" x="780" y="472" width="340" height="106" rx="8"/>
-        <text class="t-kind" x="802" y="498"><tspan class="en">SPECIAL CHATS</tspan><tspan class="es">CHATS ESPECIALES</tspan></text>
-        <text class="t-set" x="802" y="526">GPT</text>
-        <text class="t-sub" x="802" y="548"><tspan class="en">a specialised helper</tspan><tspan class="es">ayudante especializado</tspan></text>
-        <text class="t-tag go" x="802" y="568"><tspan class="en">&#9679; answers on its own</tspan><tspan class="es">&#9679; responde solo</tspan></text>
+        <rect class="d-agent" x="796" y="522" width="308" height="106" rx="8"/>
+        <text class="t-kind" x="816" y="548"><tspan class="en">SPECIAL CHATS</tspan><tspan class="es">CHATS ESPECIALES</tspan></text>
+        <use class="ico" href="#i-cpu" x="816" y="560" width="20" height="20"/>
+        <text class="t-set" x="846" y="576">GPT</text>
+        <text class="t-sub" x="816" y="600"><tspan class="en">a specialised helper</tspan><tspan class="es">ayudante especializado</tspan></text>
+        <text class="t-tag go" x="816" y="620"><tspan class="en">&#9679; answers on its own</tspan><tspan class="es">&#9679; responde solo</tspan></text>
       </g>
       <g>
-        <rect class="d-agent dash" x="780" y="590" width="340" height="54" rx="8"/>
-        <text class="t-sub" x="802" y="612"><tspan class="en">Secondary admin (optional)</tspan><tspan class="es">Administrador secundario (opcional)</tspan></text>
-        <text class="t-sub" x="802" y="632"><tspan class="en">a person or another AI, approves only</tspan><tspan class="es">una persona u otra IA, solo aprueba</tspan></text>
+        <rect class="d-agent dash" x="780" y="670" width="340" height="54" rx="8"/>
+        <use class="ico dim" href="#i-user" x="800" y="678" width="20" height="20"/>
+        <text class="t-sub" x="830" y="693"><tspan class="en">Secondary admin (optional)</tspan><tspan class="es">Administrador secundario (opcional)</tspan></text>
+        <text class="t-sub" x="830" y="714"><tspan class="en">a person or another AI, approves only</tspan><tspan class="es">una persona u otra IA, solo aprueba</tspan></text>
       </g>
       <g>
         <circle class="msg you" r="5"><animateMotion dur="3.6s" repeatCount="indefinite"><mpath href="#up"/></animateMotion></circle>
