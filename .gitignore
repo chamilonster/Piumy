@@ -52,3 +52,9 @@ venv/
 .vs/
 *.user
 .DS_Store
+
+# Herramientas de desarrollo (impeccable), no del proyecto
+.claude/skills/impeccable/
+.claude/hooks/
+.github/skills/impeccable/
+.github/hooks/impeccable.json
