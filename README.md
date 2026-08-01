@@ -5,18 +5,30 @@ brain (your AI) connects over **MCP** and answers. Everything hardware-specific
 lives behind **configurable adapters**, so the same core runs on a board or on
 your PC.
 
-## Three things, and they are not the same
+## Current version
 
-| | What it is | Does it answer WhatsApp? | Where it runs |
-|---|---|---|---|
-| **Piumy for Windows** `0.1.1` | The full switchboard as a **CleverCoder plugin**. One installer: it generates its own keys, asks for a password, and ends on the QR to link WhatsApp. No hardware needed. | **Yes** — this *is* the gateway | Your Windows PC |
-| **Piumy Pi** | The full switchboard on a **Raspberry Pi Zero 2 W** with a 2.13" e-paper face, UPS battery, always on, sipping power. The original edition. | **Yes** — this *is* the gateway | A board you hold in your hand |
-| **Piumy Desktop** | A floating, always-on-top widget that **shows** the e-paper face on your desktop, using the same renderer the Pi uses. Right-click switches between a local sandbox and your real Pi (read-only, over REST + SSH). It has an "Open Dashboard" button that logs you in by itself. | **No** — it's a window into a Piumy running elsewhere | Your desktop, next to whatever you're doing |
+**Piumy for Windows** `0.1.1` — the full switchboard as a **CleverCoder
+plugin**. One installer: it generates its own keys, asks you for a password,
+and ends on the QR to link WhatsApp. No hardware needed.
 
-**The distinction that matters:** *Windows* and *Pi* **are** the gateway — they
-hold WhatsApp, the database and the rules. *Desktop* is a **view** of one: it
-watches and opens the dashboard, it never answers a message. Running Desktop
-alone gives you a face and nothing behind it.
+[**↓ Download**](https://github.com/chamilonster/Piumy/releases/latest) · this
+**is** the gateway: it holds WhatsApp, the database and the rules. The brain
+stays outside — your agent connects over MCP and does the answering.
+
+## ⚠️ OLD VERSIONS
+
+Kept as source, **not supported and not what you want to install today**:
+
+| | What it was | Where it ran |
+|---|---|---|
+| **Piumy Pi** | The switchboard on a **Raspberry Pi Zero 2 W** with a 2.13" e-paper face and UPS battery, always on. The original edition. | A board you hold in your hand |
+| **Piumy Desktop** (`tools/desktop/`) | A floating, always-on-top widget that **showed** the e-paper face on your desktop and opened the dashboard. It never answered a message — it was a window into a Piumy running elsewhere. | Your desktop |
+
+Everything below in this README that mentions boards, e-paper, batteries or
+`deploy/install.sh` belongs to those old versions.
+
+**A new Raspberry Pi build is coming back**, along with macOS and Linux — see
+Platforms.
 
 ## An add-on for CleverCoder
 
