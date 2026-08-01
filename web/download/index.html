@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Download Piumy</title>
-<meta name="description" content="Download Piumy for Windows: one installer, nothing to configure. Free and open-source.">
+<meta name="description" content="Download Piumy. Windows available now; Linux and macOS in the works. Free and open-source.">
 <meta name="theme-color" content="#080c0a">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27><text y=%27.9em%27 font-size=%2790%27>🦉</text></svg>">
+<link rel="icon" href="../img/piumy.ico" sizes="any">
 <script>
   (function () {
     var saved = null;
@@ -19,50 +19,110 @@
 <style>
   :root{
     --bg:#080c0a;--ink:#e4f2ea;--dim:#82a091;--green:#4ade80;--amber:#fbbf24;
-    --line:#1a2620;--panel:#0c1310;
+    --line:#1a2620;--panel:#0c1310;--orange:#e15b41;
     --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI Variable Display","Segoe UI",Avenir,"Helvetica Neue",sans-serif;
     --mono:ui-monospace,"SF Mono",SFMono-Regular,"Cascadia Code","Fira Code",Menlo,Consolas,monospace;
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:18px;line-height:1.6;-webkit-font-smoothing:antialiased}
   .lang-en .es,.lang-es .en{display:none}
-  .wrap{max-width:640px;margin:0 auto;padding:0 24px}
+  .wrap{max-width:760px;margin:0 auto;padding:0 28px}
   .top{display:flex;align-items:center;gap:13px;padding:26px 0 0;font-family:var(--mono);font-size:14px}
   .top .logo{color:var(--green);letter-spacing:.08em}
   .top .word{font-weight:700}
   a{color:var(--green);text-decoration:none;border-bottom:1px solid rgba(74,222,128,.32)}
   a:hover{border-bottom-color:var(--green)}
   a:focus-visible{outline:2px solid var(--green);outline-offset:3px}
-  h1{font-size:clamp(1.9rem,5vw,2.4rem);font-weight:650;letter-spacing:-0.03em;line-height:1.3;margin:64px 0 0}
+  h1{font-size:clamp(1.9rem,5vw,2.4rem);font-weight:650;letter-spacing:-0.03em;line-height:1.3;margin:60px 0 0}
   p{margin:16px 0 0;color:var(--dim)}
-  .btn{
-    display:inline-block;margin-top:30px;padding:13px 24px;border-radius:5px;
-    font-family:var(--sans);font-size:18px;font-weight:650;
-    border:1px solid var(--green);background:var(--green);color:#06120b;
+
+  .plat{display:grid;gap:12px;margin:34px 0 0}
+  .card{
+    display:flex;align-items:center;gap:18px;
+    border:1px solid var(--line);border-radius:8px;padding:20px 22px;background:var(--panel);
   }
-  .btn:hover{background:#3fca70;border-color:#3fca70}
-  ol{padding-left:1.3em;margin:26px 0 0;color:var(--dim)}
-  ol li{margin-bottom:12px}
+  .card .os{font-family:var(--mono);font-size:18px;font-weight:700;min-width:110px}
+  .card .st{color:var(--dim);font-size:14px;font-family:var(--mono);flex:1}
+  .card.on{border-color:var(--green)}
+  .card.on .os{color:var(--green)}
+  .card.off{opacity:.55}
+  .card.off .os{color:var(--dim)}
+  .get{
+    display:inline-block;padding:11px 20px;border-radius:5px;font-weight:650;font-size:18px;
+    border:1px solid var(--green);background:var(--green);color:#06120b;white-space:nowrap;
+  }
+  .get:hover{background:#3fca70;border-color:#3fca70}
+  .soon{
+    font-family:var(--mono);font-size:14px;color:var(--dim);
+    border:1px dashed var(--line);border-radius:5px;padding:10px 18px;white-space:nowrap;
+  }
+  .push{
+    margin:26px 0 0;padding:18px 22px;border:1px solid var(--orange);border-radius:8px;
+  }
+  .push .btn{
+    display:inline-block;margin-top:12px;padding:11px 20px;border-radius:5px;font-weight:650;font-size:18px;
+    border:1px solid var(--orange);color:var(--ink);background:none;
+  }
+  .push .btn:hover{background:rgba(225,91,65,.12)}
+  ol{padding-left:1.3em;margin:30px 0 0;color:var(--dim)}
+  ol li{margin-bottom:11px}
   ol li::marker{color:var(--green)}
-  .note{border-left:2px solid var(--amber);padding-left:18px;margin-top:34px}
-  .meta{font-family:var(--mono);font-size:14px;margin-top:34px;padding-bottom:64px}
+  .note{margin-top:34px;color:var(--dim);max-width:56ch}
+  .note strong{color:var(--amber);font-weight:650}
+  .meta{font-family:var(--mono);font-size:14px;margin:34px 0 0;padding-bottom:60px}
+  @media (max-width:620px){
+    .card{flex-wrap:wrap;gap:12px}
+    .card .st{flex:1 1 100%}
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="top">
-    <span class="logo">(◕‿◕)</span><span class="word">Piumy</span>
-  </div>
+  <div class="top"><span class="logo">(◕‿◕)</span><span class="word">Piumy</span></div>
 
   <h1><span class="en">Download Piumy</span><span class="es">Descargar Piumy</span></h1>
   <p>
-    <span class="en">One installer for Windows. It generates its own keys, asks for a password, and ends on the QR to link your WhatsApp.</span>
-    <span class="es">Un instalador para Windows. Genera solo sus claves, te pide una contraseña y termina en el QR para vincular tu WhatsApp.</span>
+    <span class="en">One installer. It generates its own keys, asks for a password, and ends on the QR to link your WhatsApp.</span>
+    <span class="es">Un instalador. Genera solo sus claves, te pide una contraseña y termina en el QR para vincular tu WhatsApp.</span>
   </p>
 
-  <a class="btn" href="https://github.com/chamilonster/Piumy/releases/latest">
-    <span class="en">↓ Download for Windows</span><span class="es">↓ Descargar para Windows</span>
-  </a>
+  <div class="plat">
+    <div class="card on">
+      <span class="os">Windows</span>
+      <span class="st"><span class="en">available now · 0.1.1</span><span class="es">disponible ahora · 0.1.1</span></span>
+      <a class="get" href="https://github.com/chamilonster/Piumy/releases/latest">
+        <span class="en">↓ Download</span><span class="es">↓ Descargar</span>
+      </a>
+    </div>
+
+    <div class="card off">
+      <span class="os">Linux</span>
+      <span class="st"><span class="en">the engine already builds for it · packaging pending</span><span class="es">el motor ya compila · falta el empaquetado</span></span>
+      <span class="soon"><span class="en">not yet</span><span class="es">todavía no</span></span>
+    </div>
+
+    <div class="card off">
+      <span class="os">macOS</span>
+      <span class="st"><span class="en">the engine already builds for it · packaging pending</span><span class="es">el motor ya compila · falta el empaquetado</span></span>
+      <span class="soon"><span class="en">not yet</span><span class="es">todavía no</span></span>
+    </div>
+
+    <div class="card off">
+      <span class="os">Raspberry Pi</span>
+      <span class="st"><span class="en">dedicated device with an e-paper face</span><span class="es">aparato dedicado con carita de tinta electrónica</span></span>
+      <span class="soon"><span class="en">not yet</span><span class="es">todavía no</span></span>
+    </div>
+  </div>
+
+  <div class="push">
+    <p style="margin:0;color:var(--ink)">
+      <span class="en">Linux, macOS and the Pi are built by one person, in the time that's left over. <strong style="color:var(--ink)">Donating is what shortens that wait.</strong></span>
+      <span class="es">Linux, macOS y la Pi los construye una sola persona, con el tiempo que le sobra. <strong style="color:var(--ink)">Donar es lo que acorta esa espera.</strong></span>
+    </p>
+    <a class="btn" href="https://clevercat.lemonsqueezy.com/checkout/buy/3e2ebe37-5116-4e2a-9400-2246c1199c8d">
+      <span class="en">♥ Donate — pay what you want</span><span class="es">♥ Donar — paga lo que quieras</span>
+    </a>
+  </div>
 
   <ol class="en">
     <li>Run the installer.</li>
@@ -83,8 +143,8 @@
   </p>
 
   <p class="meta">
-    <span class="en">Free · AGPL-3.0 · macOS, Linux and the Pi port are coming · <a href="../">piumy.app</a> · <a href="https://github.com/chamilonster/Piumy">GitHub</a></span>
-    <span class="es">Gratis · AGPL-3.0 · macOS, Linux y la versión Pi vienen en camino · <a href="../">piumy.app</a> · <a href="https://github.com/chamilonster/Piumy">GitHub</a></span>
+    <span class="en">Free · AGPL-3.0 · requires <a href="https://clevercoder.app">clevercoder.app</a> · <a href="../">piumy.app</a> · <a href="https://github.com/chamilonster/Piumy">GitHub</a></span>
+    <span class="es">Gratis · AGPL-3.0 · requiere <a href="https://clevercoder.app">clevercoder.app</a> · <a href="../">piumy.app</a> · <a href="https://github.com/chamilonster/Piumy">GitHub</a></span>
   </p>
 </div>
 </body>
