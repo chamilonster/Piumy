@@ -25,32 +25,33 @@
 </script>
 <style>
   :root{
-    --bg:#080c0a;
-    --ink:#e4f2ea;
-    --dim:#82a091;
-    --green:#4ade80;
-    --amber:#fbbf24;
-    --line:#1a2620;
-    --panel:#0c1310;
-    --panel2:#0f1814;
-    --wire-hold:#3a3320;
-    --btn-ink:#06120b;
+    /* Tailwind: zinc para los grises, emerald para el acento, amber para el aviso */
+    --bg:#09090b;        /* zinc-950 */
+    --panel:#18181b;     /* zinc-900 */
+    --panel2:#1c1c20;    /* zinc-900/800 */
+    --line:#27272a;      /* zinc-800 */
+    --ink:#f4f4f5;       /* zinc-100 */
+    --dim:#a1a1aa;       /* zinc-400 */
+    --green:#34d399;     /* emerald-400 */
+    --amber:#fbbf24;     /* amber-400 */
+    --wire-hold:#57534e; /* stone-600 */
+    --btn-ink:#052e16;   /* green-950 */
     --white:#ffffff;
     --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI Variable Display","Segoe UI",Avenir,"Helvetica Neue",sans-serif;
     --mono:ui-monospace,"SF Mono",SFMono-Regular,"Cascadia Code","Fira Code",Menlo,Consolas,monospace;
   }
   html.light{
-    --bg:#eef1ee;
-    --ink:#13211a;
-    --dim:#5a7566;
-    --green:#15803d;
-    --amber:#a16207;
-    --line:#ccd6cf;
+    --bg:#f4f4f5;        /* zinc-100 */
     --panel:#ffffff;
-    --panel2:#f7faf8;
-    --wire-hold:#d8c9a4;
+    --panel2:#fafafa;    /* zinc-50 */
+    --line:#d4d4d8;      /* zinc-300 */
+    --ink:#18181b;       /* zinc-900 */
+    --dim:#71717a;       /* zinc-500 */
+    --green:#047857;     /* emerald-700 */
+    --amber:#b45309;     /* amber-700 */
+    --wire-hold:#d6d3d1; /* stone-300 */
     --btn-ink:#ffffff;
-    --white:#13211a;
+    --white:#18181b;
   }
   *{box-sizing:border-box}
   html{-webkit-text-size-adjust:100%}
@@ -67,7 +68,7 @@
   h2{font-size:clamp(1.5rem,2.6vw,1.8rem);margin-bottom:22px}
   p{margin:0 0 16px}
   p:last-child{margin:0}
-  a{color:var(--green);text-decoration:none;border-bottom:1px solid rgba(74,222,128,.32)}
+  a{color:var(--green);text-decoration:none;border-bottom:1px solid color-mix(in srgb, var(--green) 45%, transparent)}
   a:hover{border-bottom-color:var(--green)}
   a:focus-visible,button:focus-visible{outline:2px solid var(--green);outline-offset:3px;border-radius:2px}
   .dim{color:var(--dim)}
@@ -107,9 +108,9 @@
   .btn.cc:hover{border-color:var(--dim)}
   .btn.cc img{width:26px;height:26px;display:block}
   .btn.ghost{background:none;color:var(--green)}
-  .btn.ghost:hover{background:rgba(74,222,128,.09)}
+  .btn.ghost:hover{background:color-mix(in srgb, var(--green) 12%, transparent)}
   .meta{font-size:14px;color:var(--dim);margin-top:20px;letter-spacing:.01em}
-  .meta a{border-bottom-color:rgba(130,160,145,.4)}
+  .meta a{border-bottom-color:color-mix(in srgb, var(--dim) 55%, transparent)}
 
   .stage{padding:0 0 72px}
   .stage svg{width:100%;height:auto;display:block}
@@ -141,7 +142,7 @@
   .pisplit img{width:100%;height:auto;border-radius:10px;display:block}
 
   footer{border-top:1px solid var(--line);padding:40px 0 64px;color:var(--dim);font-size:14px}
-  footer a{color:var(--dim);border-bottom-color:rgba(130,160,145,.3)}
+  footer a{color:var(--dim);border-bottom-color:color-mix(in srgb, var(--dim) 45%, transparent)}
   footer a:hover{color:var(--green)}
   .flinks{display:flex;flex-wrap:wrap;gap:22px;margin:14px 0 20px}
 
@@ -156,7 +157,7 @@
   .d-agent.dash{stroke:var(--line);stroke-dasharray:5 4;fill:none}
   .wire{fill:none;stroke:var(--line);stroke-width:1.5}
   .wire.hold{stroke:var(--wire-hold)}
-  .wire.mine{stroke:rgba(74,222,128,.45)}
+  .wire.mine{stroke:color-mix(in srgb, var(--green) 50%, transparent)}
   svg text{font-family:var(--mono)}
   .t-univ{font-size:13px;fill:var(--dim);letter-spacing:.05em}
   .t-set{font-size:15px;fill:var(--white);font-weight:700;letter-spacing:-0.01em}
