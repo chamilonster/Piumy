@@ -1,0 +1,4 @@
+# Line endings: normalizar a LF en todo el repo, determinístico en Windows/Linux.
+# Anula el core.autocrlf=true local (que causaba churn de CRLF en cada branch switch).
+# Go tooling (gofmt, build) usa LF.
+* text=auto eol=lf

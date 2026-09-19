@@ -1,0 +1,45 @@
+#!/bin/sh
+# Rechaza commits que introduzcan datos personales. Ver constitution.md §2b.
+#
+# Existe porque ya pasó: un archivo con 559 personas -- nombre y telefono --
+# quedo versionado, y se detecto por casualidad al auditar antes de publicar.
+# Este repo se publica: lo que entra al historial queda publico para siempre,
+# aunque el archivo se borre en un commit posterior.
+#
+# Solo mira lo que se va a commitear, no el arbol entero.
+
+added=$(git diff --cached --name-only --diff-filter=ACM)
+[ -z "$added" ] && exit 0
+
+# T114 (ct-2026-09-01-1905): los 4 patrones (jid/code_jid/intl/cl) viven en
+# personal-data-patterns.sh, compartido con commit-msg — una sola fuente de
+# verdad en vez de mantener el mismo regex duplicado en los dos hooks.
+. "$(dirname "$0")/personal-data-patterns.sh"
+
+hits=$(git diff --cached -U0 -- $added \
+       | grep '^+' | grep -v '^+++' \
+       | grep -nP "$personal_data_pat" 2>/dev/null | head -20)
+
+if [ -n "$hits" ]; then
+  echo ""
+  echo "  COMMIT RECHAZADO - datos personales en el cambio"
+  echo ""
+  echo "  Se detecto algo con forma de telefono real o JID de WhatsApp en las"
+  echo "  lineas que estas agregando. Este repositorio se publica: una vez en"
+  echo "  el historial, queda accesible aunque despues lo borres."
+  echo ""
+  echo "  Lineas (recortadas):"
+  echo "$hits" | cut -c1-100 | sed 's/^/    /'
+  echo ""
+  echo "  Que hacer:"
+  echo "    - Si es un dato real: sacalo. La evidencia de una prueba no es"
+  echo "      codigo -- guardala fuera del repo."
+  echo "    - Si es un ejemplo o un test: usa el prefijo 555, que este hook"
+  echo "      permite. 555000001@s.whatsapp.net, 555000000000001@lid."
+  echo ""
+  echo "  Detalle: .clevercoder/constitution.md, seccion 2b."
+  echo ""
+  exit 1
+fi
+
+exit 0

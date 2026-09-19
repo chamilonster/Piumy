@@ -1,0 +1,724 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Piumy Gateway</title>
+<meta name="theme-color" content="#070b0a">
+<link rel="icon" type="image/png" href="/dashboard/favicon.png">
+<link rel="stylesheet" href="/dashboard/style.css">
+</head>
+<body>
+
+  <div class="term">
+    <div class="screen">
+
+      <!-- topbar: la marca (carita + "piumy"), arriba de todo, chica y
+           alineada a la derecha (T116, ct-2026-09-01-2040 — el dueño:
+           "quiero eso mas pequeño y arriba, como una topbar, hay mucho
+           margen superior y alineado a la derecha"). Antes vivía DENTRO de
+           .dash-hero como .brandrow (T112b+T112d) — se saca de ahí y sube
+           acá, primero que todo, incluidas las alarmas: es la identidad de
+           la página, no una alarma ni el contenido principal.
+           T117 (ct-2026-09-01-2119): con T116 la carita y "piumy" quedaron
+           en extremos opuestos de la barra en la instalación real — sin
+           poder reproducir el motivo exacto sin un navegador a mano, se
+           agrupan de forma ESTRUCTURAL en vez de confiar solo en el
+           espaciado: .brand los envuelve en un mismo bloque con borde
+           (un "chip"), así no dependen de cómo el flex padre reparta el
+           ancho disponible. .face sube de tamaño (T117: a 20-26px el
+           parpadeo/bob eran casi imperceptibles). #moodlabel (el ánimo del
+           gateway) y #status (si hay conexión) siguen siendo datos
+           DISTINTOS — dos spans separados por "·", nunca fusionados
+           (regla que viene de T112b/d, sin cambios acá). -->
+      <div class="topbar">
+        <div class="brand">
+          <div class="face xs" id="face" role="img" aria-label="Cara viva del gateway" data-i18n-aria-label="aria.gateway_face">
+            <span class="paren">(</span><span class="eye">◕</span><span class="mouth">‿</span><span class="eye">◕</span><span class="paren">)</span>
+          </div>
+          <span class="brand-name">piumy</span>
+        </div>
+        <span class="live"><span class="pulse"></span> alive · <span id="moodlabel">idle</span> · <span class="badge" id="status">—</span></span>
+      </div>
+
+      <!-- alarma: contraseña de fábrica (T9, ct-2026-08-05-1137) — el
+           instalador silencioso puede dejar "piumy" puesta (T8), y esa
+           clave es pública: está en el instalador y en el código abierto.
+           Fuera de #adminpanel a propósito: visible AUNQUE WhatsApp no
+           esté vinculado todavía — la ventana de mayor riesgo es la
+           instalación recién hecha. -->
+      <div class="alertbar hidden" id="factorypwalert" role="alert">
+        <span data-i18n="alert.factory_password">⚠️ El tablero sigue con la contraseña de fábrica — cualquiera en tu red la conoce.</span>
+        <button class="btn danger sm" type="button" id="factorypwalert_btn" data-i18n="action.change_password">Cambiar contraseña</button>
+      </div>
+
+      <!-- alarma: sin terminal por defecto (T25, ct-2026-08-05-1833) — si
+           ni PIUMY_DEFAULT_TERMINAL_ID ni la antena principal (arriba,
+           "Antena") dan un terminal, los mensajes del dueño no tienen a
+           dónde despacharse. El respaldo por la antena ya cubre el caso
+           común (antena configurada, variable vacía); esta alarma es
+           solo para cuando NINGUNA de las dos está puesta. -->
+      <div class="alertbar hidden" id="noterminalalert" role="alert">
+        <span data-i18n="alert.no_terminal">⚠️ No hay un terminal por defecto configurado — los mensajes del dueño no se van a poder despachar hasta que configures la antena o PIUMY_DEFAULT_TERMINAL_ID.</span>
+      </div>
+
+      <!-- hero: carita + identidad + welcome o conectado -->
+      <div class="dash-hero">
+        <div class="hero-panel">
+          <div class="avatar avatar-xl" id="heroavatar"></div>
+          <div class="hero-id">
+            <div class="hero-name" id="name">Conecta tu WhatsApp</div>
+            <!-- T112c: el nombre no es editable acá — WhatsApp no le da esa
+                 operación a ningún programa externo (verificado contra el
+                 cliente vendored, ver MANUAL.md#T92 y #T112c). Sin nota al
+                 lado (T112c amend 2, pedido del dueño verbatim: "vale, pero
+                 sin nota, se edita desde el celular nada mas") — sin ningún
+                 control de edición junto al nombre, nadie espera poder
+                 tocarlo ahí, así que explicarlo era ruido. -->
+            <!-- estado/"About" de WhatsApp (T96, ct-2026-08-28-1743 — la
+                 mitad que faltó de T92). T116 (ct-2026-09-01-2040): el
+                 dueño lo veía como "falta" porque nacía hidden y solo
+                 aparecía con texto — correcto cuando el renglón era de
+                 solo lectura (un estado vacío es normal, no un error),
+                 pero con el lápiz de acá abajo el renglón ES el lugar
+                 donde se edita, así que tiene que estar SIEMPRE (visible
+                 con o sin texto — ver app.js#loadProfileStatus/
+                 renderHeroStatusView). herostatus_text queda vacío en vez
+                 de un placeholder tipo "(sin estado)" cuando no hay nada
+                 puesto — el lápiz solo ya invita a tocarlo. -->
+            <div class="hero-status" id="herostatus">
+              <span class="hero-status-text" id="herostatus_text"></span>
+              <button type="button" class="hero-status-pencil" id="herostatus_pencil" title="Editar estado" aria-label="Editar estado" data-i18n-title="hero.edit_status" data-i18n-aria-label="hero.edit_status">✎</button>
+            </div>
+            <div class="hero-number" id="num">Escanea el QR para vincular tu cuenta al gateway</div>
+          </div>
+          <div class="cta">
+            <button class="btn pri" type="button" id="qrbtn" data-i18n="hero.connect_qr">Conectar QR</button>
+            <!-- T116 (ct-2026-09-01-2040), pedido del dueño verbatim: "y ese
+                 boton escondelo ya que lo unico cambiable es el estado que
+                 ahora tendra un lapiz directo". Oculto SIEMPRE (ya no se
+                 togglea en JS) — de los 3 controles del modal, el nombre no
+                 se puede cambiar (T112c) y la foto no responde (T115 la
+                 está investigando), así que solo quedaba el estado, y el
+                 lápiz de #herostatus lo reemplaza en la práctica.
+                 NO BORRAR EL MODAL (#profilemodal) ni su código: sigue
+                 siendo el ÚNICO acceso a la foto de perfil. Si T115
+                 (ct-2026-09-01-1948) la destraba, ese acceso tiene que
+                 volver — pero NO como este botón: el lugar natural para
+                 cambiar la foto es la foto, un lápiz sobre el avatar,
+                 igual que el de acá. Eso es para cuando haga falta, no
+                 ahora. -->
+            <button class="btn gho sm hidden" type="button" id="editprofilebtn" data-i18n="hero.edit_profile">Editar perfil</button>
+          </div>
+        </div>
+
+        <div class="mini-stats"><span data-i18n="stats.queue">cola:</span> <b id="statqueue">0</b> &nbsp;·&nbsp; <span data-i18n="stats.sent">enviados:</span> <b id="statsent">0</b> &nbsp;·&nbsp; <span data-i18n="stats.agents">agentes:</span> <b id="statagents">0</b></div>
+
+        <!-- T118 (ct-2026-09-01-2205): el dueño pidió esto tres veces —
+             "el boton de desconectar no me gusta ahi ya te dije". Se saca
+             de .cta (donde competía con "Conectar QR", centrado bajo el
+             avatar) y pasa a ser lo último del hero, alineado a la
+             derecha — abajo a la derecha del bloque, como pidió. Sigue
+             con su propio modal de confirmación (#disconnectmodal), sin
+             cambios ahí. -->
+        <div class="hero-footer-actions">
+          <button class="btn danger sm hidden" type="button" id="disconnectbtn" data-i18n="hero.disconnect">Desconectar</button>
+        </div>
+      </div>
+
+      <!-- panel admin: oculto hasta vincular WhatsApp (S1f, ct-2026-07-19-1735) -->
+      <div id="adminpanel" class="hidden">
+
+      <!-- estado: compacto, una fila -->
+      <div class="card">
+        <div class="status-bar">
+          <span class="sbadge">WhatsApp <b id="badgewa">⚪</b></span>
+          <span class="sbadge"><span data-i18n="badge.antenna">Antena</span> <b id="badgeantena">⚪</b></span>
+          <span class="sbadge" title="Governor: anti-ban, ritmo de envío de mensajes" data-i18n-title="tooltip.governor">Governor <b id="badgegovernor">⚪</b></span>
+          <span class="sbadge" title="Backup: cuántos chats, grupos, contactos de agenda y números respaldó el backfill en la base de datos" data-i18n-title="tooltip.backup">Backup <b id="badgebackup">⚪</b></span>
+          <span class="sbadge"><span data-i18n="badge.encrypted">Cifrado</span> <b id="badgecifrado">⚪</b></span>
+          <span class="sbadge" title="Historial de conversaciones descargadas (backfill): completas / total — se completa solo, en segundo plano" data-i18n-title="tooltip.history"><span data-i18n="badge.history">Historial</span> <b id="badgehistory">—</b></span>
+          <span class="sbadge" title="Sincronización de historial en vivo tras un re-pareo" data-i18n-title="tooltip.sync">Sync <b id="badgesync">—</b></span>
+          <!-- Modo privacidad (T85, ct-2026-08-28-0059; alcance corregido a
+               SOLO números en T93) — ojito que tapa números de teléfono
+               (incluido el propio) para mostrar el tablero en stream sin
+               exponerlos. Nombres, avatares y el nombre propio quedan
+               visibles — el title lo deja explícito para que el dueño no
+               dé por tapado algo que no lo está. -->
+          <button class="btn gho sm" type="button" id="privacybtn" title="Oculta SOLO números de teléfono (incluido el tuyo) en todo el tablero. Nombres y avatares quedan visibles. Los MENSAJES no se ocultan — si alguien escribió un número a mano en un mensaje, sigue visible." data-i18n-title="tooltip.privacy"><span class="eye" id="privacyeye">◕</span> <span data-i18n="badge.privacy">Privacidad</span></button>
+          <button class="btn gho sm cfg" type="button" id="configbtn" data-i18n="modal.settings_title">Config ⚙</button>
+        </div>
+      </div>
+
+      <!-- conversaciones: 3 tabs (S1h shell — subcontrato de tabs, ct-2026-07-19) -->
+      <div class="card">
+        <span class="eyebrow" data-i18n="tab.conversations">Conversaciones</span>
+
+        <div class="tabs-head">
+          <div class="tabs">
+            <button class="tab-btn active" type="button" data-tab="chats" data-i18n="tab.chats">Chats</button>
+            <button class="tab-btn" type="button" data-tab="grupos" data-i18n="tab.groups">Grupos</button>
+            <button class="tab-btn" type="button" data-tab="contactos" data-i18n="tab.contacts">Contactos</button>
+            <button class="tab-btn" type="button" data-tab="agentes" data-i18n="tab.agents">Agentes</button>
+            <button class="tab-btn" type="button" data-tab="rules" data-i18n="tab.rules">Reglas</button>
+            <!-- "Drafts" va en su PROPIO span, no data-i18n directo en el
+                 botón (T165, ct-2026-09-16-2016): applyI18n() hace
+                 el.textContent = text sobre el elemento con data-i18n —
+                 puesto en el <button>, borraría el <span id="draftbadge">
+                 vecino en cada pasada. Mismo patrón que #privacybtn
+                 (arriba, ◕ Privacidad) para el mismo problema. -->
+            <button class="tab-btn" type="button" data-tab="drafts"><span data-i18n="tab.drafts">Drafts</span> <span id="draftbadge" class="tabbadge hidden">0</span></button>
+          </div>
+        </div>
+
+        <!-- T14 (ct-2026-08-05-1232): un solo buscador, nunca repetido por
+             pestaña — vive acá, DENTRO del bloque de pestañas (debajo de
+             los botones, antes de los paneles), no arriba de todo como
+             antes. app.js#SEARCHABLE_TABS decide, en el mismo handler que
+             cambia de pestaña, si se muestra (con qué placeholder) o se
+             oculta entera — "mejor ausente que presente y muerto" para
+             Agentes/Reglas/Drafts, que no filtran. -->
+        <input class="search" id="search" type="text" placeholder="Buscar…">
+
+        <!-- TAB: CHATS -->
+        <div class="tab-panel active" data-panel="chats">
+          <div id="sortbar">
+            <span class="label" data-i18n="sort.label">Ordenar por:</span>
+            <div class="segmented" id="sortopts">
+              <button data-val="recientes" class="active" data-i18n="sort.recent">recientes</button>
+              <button data-val="nivel" data-i18n="sort.level">nivel</button>
+              <button data-val="ignorados" data-i18n="sort.ignored">ignorados</button>
+            </div>
+          </div>
+
+          <div class="table-scroll">
+            <table id="chattable">
+              <thead>
+                <tr>
+                  <th data-i18n="table.conversation">Conversación</th>
+                  <th data-i18n="table.level">Nivel</th>
+                  <th data-i18n="table.agent">Agente</th>
+                  <th data-i18n="tab.rules">Reglas</th>
+                </tr>
+              </thead>
+              <tbody id="chatrows"></tbody>
+            </table>
+          </div>
+          <p id="more" class="sub"></p>
+
+          <div id="legend" class="legend">
+            <span class="indicator boss">★</span><span>BOSS</span>
+            <span class="indicator auto"><span class="idot"></span></span><span data-i18n="legend.auto_reply">respuesta automática</span>
+            <span class="indicator confirm"><span class="idot"></span></span><span data-i18n="legend.with_confirmation">con tu confirmación</span>
+            <span class="indicator unattended"><span class="idot"></span></span><span data-i18n="legend.unattended">sin atender</span>
+            <span class="indicator ignored"><span class="idot"></span></span><span data-i18n="sort.ignored">ignorados</span>
+          </div>
+        </div>
+
+        <!-- TAB: GRUPOS — colapsables (S1g, ct-2026-07-19-1801). #groupzone
+             (un wrapper que solo envolvía a #grouplist, sin razón propia)
+             se aplanó en S1h-fix: el div ya no existe, ver style.css. -->
+        <div class="tab-panel" data-panel="grupos">
+          <div id="grouplist"></div>
+        </div>
+
+        <!-- TAB: CONTACTOS (S1h-fix, re-partido en Tramo B P5
+             ct-2026-07-22-0436) — TODOS los contactos, en dos secciones
+             planas (mismo look .list-sub que Chats) por is_contact
+             (chatOut, backend): "Contactos" (agenda real, is_contact=true,
+             p2p o group_member) y "Números" (el resto — participantes sin
+             ser contacto; los de grupo siguen categorizados por su grupo de
+             origen). Rendered by app.js#renderContacts into #contactlist. -->
+        <div class="tab-panel" data-panel="contactos">
+          <div id="contactlist"></div>
+        </div>
+
+        <!-- TAB: AGENTES (M1, ct-2026-07-22-1301) — el principal (sintetizado
+             desde el cableado cAPI, GET /api/agents) + cada secundario
+             registrado por MCP (register_agent). Rendered by
+             app.js#renderAgents into #agentlist. -->
+        <div class="tab-panel" data-panel="agentes">
+          <div id="agentlist"></div>
+        </div>
+
+        <!-- TAB: REGLAS (T13, ct-2026-08-05-123147) — mudados acá los 4
+             campos de reglas que antes vivían sueltos arriba de las
+             pestañas (M5, ct-2026-07-22-1903; sumados ct-2026-07-31, boss:
+             "las reglas por defecto no se ven"), + identity, nuevo, arriba
+             de los cuatro porque los gobierna a todos (boss verbatim: "en
+             identity va el asistente de que"). "Mensajes nuevos"/
+             "Contactos del celular" conservan su selector de nivel al
+             lado — siguen siendo el mismo par (modo + reglas) de M5, no se
+             separaron. Sumado T71 (ct-2026-08-27-1410): un TERCER
+             selector ahí mismo, agente por defecto para ese origen
+             (ruteo, store.EffectiveAgentDefault) — misma jerarquía
+             KV/precedencia que las reglas, ver origin_new_agent/
+             origin_contact_agent en app.js#loadOriginDefaults. T72
+             (ct-2026-08-27-1625) suma el mismo selector a Grupos
+             (origin_group_agent) y una fila nueva, Boss (origin_boss_agent)
+             — SOLO el selector de agente, sin modo ni reglas (T71 ya sacó
+             el bloque rules.md del despacho al boss; no hay config-level-
+             default-boss). Misma vista, dos lados: renderAgentCard
+             (app.js) muestra/edita lo mismo desde el agente.
+             "Tipo: uno a uno" sigue sin exponerse a propósito
+             — store.EffectiveRules ya no lo lee desde M5 (ver
+             rulesSourceFor, read.go). La regla general (quinta fila,
+             "si no hay nada más específico") se sacó entera en T79
+             (ct-2026-08-27-2034, boss: "regla general ya no va por que
+             no tiene a donde ir") — Grupos/Contactos/Mensajes nuevos
+             cubren cualquier chat sin excepción, no había a dónde caer
+             debajo de ellos. -->
+        <div class="tab-panel" data-panel="rules">
+        <div class="origindefaults">
+          <div class="origindefault-row">
+            <div class="origindefault-head">
+              <span class="origindefault-label"><span data-i18n="rules.identity_label">Identidad</span> <span class="dimnote" data-i18n="rules.identity_hint">(rige el tono de las tres reglas de abajo — "asistente de qué")</span></span>
+            </div>
+            <textarea class="inp" id="identity_rules" rows="2" placeholder="Ej.: asistente de un electricista que trabaja solo…" data-i18n-placeholder="placeholder.identity_example"></textarea>
+            <button class="smbtn" id="identity_save" data-i18n="action.save_identity">Guardar identidad</button>
+            <span class="result" id="identity_save_result"></span>
+          </div>
+          <p class="dimnote origindefaults-legend" data-i18n="rules.legend">Grupos rige los chats de grupo. Contactos pisa a Mensajes nuevos en los chats 1 a 1 — todo chat cae en una de las tres.</p>
+          <div class="origindefault-row">
+            <div class="origindefault-head">
+              <span class="origindefault-label"><span data-i18n="tab.groups">Grupos</span> <span class="dimnote" data-i18n="rules.groups_hint">(todo chat de grupo sin reglas propias)</span></span>
+              <div id="origin_group_agent"></div>
+            </div>
+            <textarea class="inp" id="type_group_rules" rows="2" placeholder="Reglas por defecto para grupos…" data-i18n-placeholder="placeholder.group_rules"></textarea>
+            <button class="smbtn" id="type_group_rules_save" data-i18n="action.save_rules">Guardar reglas</button>
+            <span class="result" id="type_group_rules_save_result"></span>
+          </div>
+          <div class="origindefault-row">
+            <div class="origindefault-head">
+              <span class="origindefault-label"><span data-i18n="rules.new_messages_label">Mensajes nuevos</span> <span class="dimnote" data-i18n="rules.new_messages_hint">(números desconocidos)</span></span>
+              <div id="origin_new_level"></div>
+              <div id="origin_new_agent"></div>
+            </div>
+            <textarea class="inp" id="origin_new_rules" rows="2" placeholder="Reglas por defecto para números nuevos…" data-i18n-placeholder="placeholder.new_number_rules"></textarea>
+            <button class="smbtn" id="origin_new_rules_save" data-i18n="action.save_rules">Guardar reglas</button>
+            <span class="result" id="origin_new_rules_save_result"></span>
+          </div>
+          <div class="origindefault-row">
+            <div class="origindefault-head">
+              <span class="origindefault-label"><span data-i18n="rules.contacts_label">Contactos del celular</span> <span class="dimnote" data-i18n="rules.contacts_hint">(agenda, pisa a Mensajes nuevos)</span></span>
+              <div id="origin_contact_level"></div>
+              <div id="origin_contact_agent"></div>
+            </div>
+            <textarea class="inp" id="origin_contact_rules" rows="2" placeholder="Reglas por defecto para contactos…" data-i18n-placeholder="placeholder.contact_rules"></textarea>
+            <button class="smbtn" id="origin_contact_rules_save" data-i18n="action.save_rules">Guardar reglas</button>
+            <span class="result" id="origin_contact_rules_save_result"></span>
+          </div>
+          <div class="origindefault-row">
+            <div class="origindefault-head">
+              <span class="origindefault-label">Boss <span class="dimnote" data-i18n="rules.boss_hint">(el chat del dueño — sin modo ni reglas, T71 ya lo saca del preámbulo)</span></span>
+              <div id="origin_boss_agent"></div>
+            </div>
+          </div>
+        </div>
+        </div>
+
+        <!-- TAB: DRAFTS (T16, ct-2026-08-05-123257) — borradores en espera
+             de confirmación (confirmation_mode, Store.PendingDrafts).
+             Antes vivía como card fija al pie de #adminpanel; el boss
+             pidió que sea pestaña, con el contador sobre el botón mismo
+             (ver #draftbadge arriba) en vez de un párrafo debajo — así se
+             ve sin entrar. Rendered by app.js#renderPendingDrafts into
+             #draftlist. -->
+        <div class="tab-panel" data-panel="drafts">
+          <p id="draftcount" class="sub">0 pendientes</p>
+          <div id="draftlist"></div>
+        </div>
+      </div>
+
+      </div><!-- /#adminpanel -->
+
+      <!-- pie del tablero (T112a, ct-2026-09-01-145654) — el dueño, verbatim:
+           "al final del dashboard quiero que agregues el github, gracias por
+           usar, el link de clever.cat con el logo, hecho por camilo brossard
+           y el link de reddit". Discreto (--dim/--border, separado por un
+           divisor), no compite con el tablero. Los 3 links salen a pestaña
+           nueva con rel="noopener" — el tablero es una app, no se navega
+           afuera encima de ella. Visible SIEMPRE, no solo con #adminpanel
+           (WhatsApp conectado) — está fuera de ese bloque a propósito.
+           El logo va embebido con el resto del tablero (clevercat-logo.png,
+           dado por el dueño, ver Citrino), servido por el mismo go:embed que
+           favicon.png — cero llamadas a internet para dibujarse. Escalado
+           por CSS (.footer-logo), sin re-dibujarlo ni convertirlo. -->
+      <footer class="dash-footer">
+        <a href="https://github.com/chamilonster/Piumy" target="_blank" rel="noopener">GitHub</a>
+        <span class="footer-sep">·</span>
+        <span data-i18n="footer.thanks">Gracias por usar Piumy.</span>
+        <span class="footer-sep">·</span>
+        <a class="footer-brand" href="https://clever.cat" target="_blank" rel="noopener">
+          <img src="/dashboard/clevercat-logo.png" alt="Logo de clever.cat" class="footer-logo" data-i18n-alt="alt.clevercat_logo">
+          clever.cat
+        </a>
+        <span class="footer-sep">·</span>
+        <!-- T153 2a, corrección de Citrino: el nombre es dato, no interfaz
+             — no va al catálogo (además, hay una decisión abierta del boss
+             sobre si su nombre real va en el repo publicado; una sola copia
+             que tocar el día que se resuelva). Solo "Hecho por"/"Made by"
+             viene del catálogo. -->
+        <span><span data-i18n="footer.made_by">Hecho por</span> Camilo Brossard</span>
+        <span class="footer-sep">·</span>
+        <a href="https://www.reddit.com/r/piumy/" target="_blank" rel="noopener">Reddit</a>
+      </footer>
+
+    </div>
+  </div>
+
+  <!-- popup: conversación estilo celular (S6, ct-2026-07-21-1543) — reemplaza
+       el panel de lectura inline; se abre al hacer clic en un chat. -->
+  <div class="overlay hidden" id="phonepopup">
+    <div class="phone-shell">
+      <div class="phone">
+        <div class="phone-notch"></div>
+        <!-- El cerrar vive DENTRO del marco (pedido del dueño, 2026-09-01):
+             afuera y chico se lee como parte de la página, no del chat. -->
+        <button class="phone-x" type="button" id="phone_close" aria-label="Cerrar" title="Cerrar" data-i18n-aria-label="action.close" data-i18n-title="action.close">✕</button>
+        <div class="phone-header">
+          <div class="phone-avatar" id="phone_avatar">💬</div>
+          <div>
+            <div class="phone-name" id="phone_name">—</div>
+            <div class="phone-sub" id="phone_sub">—</div>
+          </div>
+        </div>
+        <!-- D3 (ct-2026-07-22-2100): toggle SOLO para grupos — "Ver chat"
+             (default) muestra la conversación con remitente por burbuja;
+             "Lista de miembros" es lo que ya existía (Tramo D). Oculto por
+             defecto — openPhonePopup (1:1) lo esconde, openGroupDetail lo
+             muestra. -->
+        <div class="phone-toggle hidden" id="phone_group_toggle">
+          <button class="smbtn" type="button" id="phone_toggle_chat" data-i18n="phone.view_chat">Ver chat</button>
+          <button class="smbtn" type="button" id="phone_toggle_members" data-i18n="phone.member_list">Lista de miembros</button>
+        </div>
+        <div class="phone-body" id="phonebody"></div>
+        <div class="phone-input"><span data-i18n="phone.readonly_notice">solo lectura · responder no está disponible todavía</span></div>
+        <div class="phone-home"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- modal: editar reglas/memoria/contexto -->
+  <div class="overlay hidden" id="editmodal">
+    <div class="term modal">
+      <div class="titlebar">
+        <span class="mdot r"></span><span class="mdot y"></span><span class="mdot g"></span>
+        <span class="path" id="edittitle">Editar</span>
+        <span class="spacer"></span>
+        <button class="close-x" type="button" id="edit_cancel" aria-label="Cerrar" data-i18n-aria-label="action.close">✕</button>
+      </div>
+      <div class="screen">
+        <div class="field"><label data-i18n="modal.contact_name_label">Nombre de contacto</label><input class="inp" id="edit_contactname" type="text" placeholder="(sin nombre de agenda)" data-i18n-placeholder="placeholder.no_contact_name"></div>
+        <div class="field"><label data-i18n="modal.edit_rules_label">Reglas (rules)</label><textarea class="inp" id="edit_rules" rows="3"></textarea></div>
+        <div class="field"><label data-i18n="modal.edit_memory_label">Memoria (memory)</label><textarea class="inp" id="edit_memory" rows="3"></textarea></div>
+        <div class="field"><label data-i18n="modal.edit_context_label">Contexto (context)</label><textarea class="inp" id="edit_context" rows="3"></textarea></div>
+        <div class="field"><button class="btn pri" type="button" id="edit_save" data-i18n="action.save">Guardar</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- modal: editar texto de un draft, sin aprobar (T16, ct-2026-08-05-123257,
+       backend: edit_draft/POST /api/admin/edit-draft) -->
+  <div class="overlay hidden" id="draftEditModal">
+    <div class="term modal">
+      <div class="titlebar">
+        <span class="mdot r"></span><span class="mdot y"></span><span class="mdot g"></span>
+        <span class="path" id="draftEditTitle">Editar borrador</span>
+        <span class="spacer"></span>
+        <button class="close-x" type="button" id="draftEdit_cancel" aria-label="Cerrar" data-i18n-aria-label="action.close">✕</button>
+      </div>
+      <div class="screen">
+        <div class="field"><label data-i18n="modal.draft_text_label">Texto</label><textarea class="inp" id="draftEdit_text" rows="4"></textarea></div>
+        <div class="field" style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn pri" type="button" id="draftEdit_save" data-i18n="action.save">Guardar</button>
+          <button class="btn gho" type="button" id="draftEdit_cancel2" data-i18n="action.cancel">Cancelar</button>
+        </div>
+        <p id="draftEdit_result" class="result"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- modal: rechazar un draft con motivo (T16, ct-2026-08-05-123257,
+       backend: reject_draft/POST /api/admin/reject-draft) — modal propio,
+       nada de window.prompt (mismo criterio que el resto de los modales
+       del tablero). El motivo viaja con el redespacho del agente
+       (capipush.dispatchPayload); acá solo se pide el texto. -->
+  <div class="overlay hidden" id="draftRejectModal">
+    <div class="term modal">
+      <div class="titlebar">
+        <span class="mdot r"></span><span class="mdot y"></span><span class="mdot g"></span>
+        <span class="path" id="draftRejectTitle">Rechazar borrador</span>
+        <span class="spacer"></span>
+        <button class="close-x" type="button" id="draftReject_cancel" aria-label="Cerrar" data-i18n-aria-label="action.close">✕</button>
+      </div>
+      <div class="screen">
+        <p class="modal-sub" data-i18n="modal.draft_reject_hint">El motivo le llega al agente junto con el mensaje original, para que redacte de nuevo.</p>
+        <div class="field"><label data-i18n="label.reason">Motivo</label><textarea class="inp" id="draftReject_reason" rows="3" placeholder="Ej.: muy formal, sé más breve…" data-i18n-placeholder="placeholder.reject_reason_example"></textarea></div>
+        <div class="field" style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn danger" type="button" id="draftReject_confirm" data-i18n="action.reject">Rechazar</button>
+          <button class="btn gho" type="button" id="draftReject_cancel2" data-i18n="action.cancel">Cancelar</button>
+        </div>
+        <p id="draftReject_result" class="result"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- modal: confirmar borrado de agente (Agentes paso 2, ct-2026-07-29) —
+       modal propio, nada de window.confirm (pedido explícito del boss). Dice
+       cuántos chats se van a desasignar ANTES de borrar (agentassign_form's
+       propio conteo ya cargado, GET /api/agents/chats) — "que el boss sepa
+       qué está soltando antes de soltarlo". -->
+  <div class="overlay hidden" id="agentdeletemodal">
+    <div class="term modal">
+      <div class="titlebar">
+        <span class="mdot r"></span><span class="mdot y"></span><span class="mdot g"></span>
+        <span class="path"><b data-i18n="titlebar.delete_agent">borrar agente</b>@gateway: ~</span>
+        <span class="spacer"></span>
+        <button class="close-x" type="button" id="agentdelete_cancel" aria-label="Cerrar" data-i18n-aria-label="action.close">✕</button>
+      </div>
+      <div class="screen">
+        <p id="agentdelete_text" class="modal-sub"></p>
+        <div class="field" style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn danger" type="button" id="agentdelete_confirm" data-i18n="action.delete_agent">Borrar agente</button>
+          <button class="btn gho" type="button" id="agentdelete_cancel2" data-i18n="action.cancel">Cancelar</button>
+        </div>
+        <p id="agentdelete_result" class="result"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- modal: confirmar pin de aprobador (Aprobador P1, ct-2026-07-31-0610)
+       — modal propio, nada de window.confirm (mismo criterio que
+       #agentdeletemodal). Habilitar explica qué se habilita ANTES de
+       tocar nada; quitar confirma corto. -->
+  <div class="overlay hidden" id="approvermodal">
+    <div class="term modal">
+      <div class="titlebar">
+        <span class="mdot r"></span><span class="mdot y"></span><span class="mdot g"></span>
+        <span class="path"><b data-i18n="titlebar.approver_permission">permiso de aprobar</b>@gateway: ~</span>
+        <span class="spacer"></span>
+        <button class="close-x" type="button" id="approver_cancel" aria-label="Cerrar" data-i18n-aria-label="action.close">✕</button>
+      </div>
+      <div class="screen">
+        <p id="approver_text" class="modal-sub"></p>
+        <div class="field" style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn" type="button" id="approver_confirm" data-i18n="action.confirm">Confirmar</button>
+          <button class="btn gho" type="button" id="approver_cancel2" data-i18n="action.cancel">Cancelar</button>
+        </div>
+        <p id="approver_result" class="result"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- modal: config (cambiar contraseña) -->
+  <div class="overlay hidden" id="configmodal">
+    <div class="term modal">
+      <div class="titlebar">
+        <span class="mdot r"></span><span class="mdot y"></span><span class="mdot g"></span>
+        <span class="path"><b>config</b>@gateway: ~</span>
+        <span class="spacer"></span>
+        <button class="close-x" type="button" id="config_cancel" aria-label="Cerrar" data-i18n-aria-label="action.close">✕</button>
+      </div>
+      <div class="screen">
+        <h3 class="modal-title" data-i18n="modal.settings_title">Configuración ⚙</h3>
+
+        <p class="modal-sub">Governor (anti-ban)</p>
+        <p class="dimnote" id="config_governor_info">—</p>
+
+        <div class="divider"></div>
+        <p class="modal-sub" data-i18n="action.change_password">Cambiar contraseña</p>
+        <div class="field"><label data-i18n="label.current_password">Contraseña actual</label><input class="inp" id="config_current" type="password" placeholder="contraseña actual" data-i18n-placeholder="placeholder.current_password"></div>
+        <div class="field"><label data-i18n="label.new_password">Nueva contraseña</label><input class="inp" id="config_new" type="password" placeholder="nueva contraseña" data-i18n-placeholder="placeholder.new_password"></div>
+        <div class="field"><label data-i18n="label.confirm_password">Repetir contraseña</label><input class="inp" id="config_repeat" type="password" placeholder="repetir contraseña" data-i18n-placeholder="placeholder.repeat_password"></div>
+        <div class="field"><button class="btn pri block" type="button" id="config_save" data-i18n="action.save">Guardar</button></div>
+        <p id="config_result" class="result"></p>
+
+        <div class="divider"></div>
+        <p class="modal-sub" data-i18n="modal.recovery_email_heading">Correo de recuperación</p>
+        <div class="field"><label>Email</label><input class="inp" id="config_email" type="email" placeholder="tu@correo.com" data-i18n-placeholder="placeholder.email_example"></div>
+        <div class="field"><button class="btn pri block" type="button" id="config_email_save" data-i18n="action.save_email">Guardar correo</button></div>
+        <p id="config_email_result" class="result"></p>
+
+        <!-- T90 (ct-2026-08-28-1350): la espera antes de despachar, movible
+             sin reiniciar. "debounce" no le dice nada al dueño — la
+             explicación va en el propio texto, no en el nombre del campo. -->
+        <div class="divider"></div>
+        <p class="modal-sub" data-i18n="modal.dispatch_wait_heading">Espera antes de despachar</p>
+        <p class="dimnote" data-i18n="modal.dispatch_wait_hint1">Cuánto espera el gateway, en silencio, antes de pasarle los mensajes al agente — así llegan agrupados en vez de uno por uno. 0 = despachar apenas llega cada mensaje.</p>
+        <div class="field"><label data-i18n="label.wait_seconds">Espera (segundos)</label><input class="inp" id="config_debounce" type="number" min="0" step="1" placeholder="60"></div>
+        <!-- T95 (ct-2026-08-28): la redacción vieja explicaba el MECANISMO
+             ("fuerza el despacho aunque el chat siga activo") — solo se
+             entiende si ya sabés que la espera de arriba se reinicia con
+             cada mensaje nuevo. El dueño: "ni yo entiendo". Reescrito desde
+             el problema: un chat muy activo podría no despachar nunca. -->
+        <p class="dimnote" data-i18n="modal.dispatch_wait_hint2">Si el chat no para de escribir, la espera de arriba se reinicia con cada mensaje — sin este límite, el agente podría no recibir nada nunca. Como mucho, esto es lo que espera desde el primer mensaje sin contestar antes de despachar igual.</p>
+        <div class="field"><label data-i18n="label.ceiling_seconds">Techo (segundos)</label><input class="inp" id="config_max_debounce" type="number" min="0" step="1" placeholder="300"></div>
+        <div class="field"><button class="btn pri block" type="button" id="config_debounce_save" data-i18n="action.save">Guardar</button></div>
+        <p id="config_debounce_result" class="result"></p>
+
+        <!-- T153 etapa 1 (ct-2026-09-08-1656): el selector, sin traducir
+             nada todavía — el catálogo que sirve GET /api/i18n arranca
+             vacío, esto solo persiste la elección manual. "Automático" deja
+             que el backend autodetecte el idioma del sistema. -->
+        <div class="divider"></div>
+        <p class="modal-sub" data-i18n="label.language">Idioma</p>
+        <p class="dimnote" data-i18n="modal.language_hint">Idioma del tablero y de los avisos que manda Piumy. "Automático" usa el idioma del sistema operativo.</p>
+        <div class="field">
+          <label data-i18n="label.language">Idioma</label>
+          <select class="inp" id="config_language">
+            <option value="" data-i18n="option.auto_language">Automático (idioma del sistema)</option>
+            <!-- "Español"/"English" quedan SIN traducir a propósito —
+                 autónimos: cada idioma se muestra en sí mismo (convención
+                 universal en selectores de idioma), y es lo usable: quien
+                 abrió el tablero sin querer en un idioma que no lee tiene
+                 que poder encontrar el suyo igual. -->
+            <option value="es">Español</option>
+            <option value="en">English</option>
+          </select>
+        </div>
+        <div class="field"><button class="btn pri block" type="button" id="config_language_save" data-i18n="action.save">Guardar</button></div>
+        <p id="config_language_result" class="result"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- modal: editar perfil de WhatsApp — foto + estado (T112c,
+       ct-2026-09-01-145755). El nombre NO está acá: no es editable, ver la
+       nota junto al nombre en el hero. Antes vivía dentro de #configmodal
+       (T92/T96) como "Perfil de WhatsApp" — movido, no duplicado, al lugar
+       que el dueño pidió (el bloque grande del hero), con el botón
+       "Editar perfil" como entrada. -->
+  <div class="overlay hidden" id="profilemodal">
+    <div class="term modal">
+      <div class="titlebar">
+        <span class="mdot r"></span><span class="mdot y"></span><span class="mdot g"></span>
+        <span class="path"><b data-i18n="titlebar.profile">perfil</b>@gateway: ~</span>
+        <span class="spacer"></span>
+        <button class="close-x" type="button" id="profile_cancel" aria-label="Cerrar" data-i18n-aria-label="action.close">✕</button>
+      </div>
+      <div class="screen">
+        <h3 class="modal-title" data-i18n="modal.whatsapp_profile_title">Editar perfil de WhatsApp</h3>
+        <p class="modal-sub" data-i18n="modal.whatsapp_profile_hint">Foto, nombre y estado los ve toda tu cuenta al instante — se guardan solo al confirmar.</p>
+
+        <div class="divider"></div>
+        <p class="modal-sub" data-i18n="modal.profile_photo_heading">Foto de perfil</p>
+        <div class="field" style="display:flex;align-items:center;gap:14px;">
+          <div class="avatar avatar-lg" id="profile_photo_preview"></div>
+          <input class="inp" id="profile_photo_input" type="file" accept="image/*">
+        </div>
+        <div class="field"><button class="btn pri block" type="button" id="profile_photo_save" data-i18n="action.save_photo">Guardar foto</button></div>
+        <p id="profile_photo_result" class="result"></p>
+
+        <!-- T92 (ct-2026-08-28) + T112c: el NOMBRE no entra — WhatsApp no
+             le da esa operación a ningún programa externo (verificado
+             contra el cliente vendored, no solo heredado de T92 sin
+             revisar — ver MANUAL.md). No es una falla ni algo por
+             construir acá. -->
+        <div class="divider"></div>
+        <p class="modal-sub" data-i18n="modal.name_heading">Nombre</p>
+        <p class="dimnote" data-i18n="modal.name_hint">El nombre se cambia desde WhatsApp en tu teléfono (Ajustes → Perfil) — WhatsApp no ofrece esa opción a ningún programa externo.</p>
+
+        <div class="divider"></div>
+        <p class="modal-sub" data-i18n="modal.about_heading">Estado ("About")</p>
+        <div class="field"><label data-i18n="label.about_text">El texto debajo de tu nombre en WhatsApp</label><input class="inp" id="profile_status_input" type="text" placeholder="Disponible" data-i18n-placeholder="placeholder.default_status"></div>
+        <div class="field"><button class="btn pri block" type="button" id="profile_status_save" data-i18n="action.save_status">Guardar estado</button></div>
+        <p id="profile_status_result" class="result"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- overlay: confirmación de "Desconectar" (M3, ct-2026-07-22-2342) —
+       modal propio del dashboard, NO window.confirm() (a pedido de Citrino,
+       para poder explicar el paso del reinicio antes de que el boss confirme). -->
+  <div class="overlay hidden" id="disconnectmodal">
+    <div class="term modal">
+      <div class="titlebar">
+        <span class="mdot r"></span><span class="mdot y"></span><span class="mdot g"></span>
+        <span class="path"><b data-i18n="titlebar.disconnect">desconectar</b>@gateway: ~</span>
+        <span class="spacer"></span>
+        <button class="close-x" type="button" id="disconnect_cancel" aria-label="Cerrar" data-i18n-aria-label="action.close">✕</button>
+      </div>
+      <div class="screen">
+        <h3 class="modal-title" data-i18n="modal.disconnect_title">¿Desconectar WhatsApp?</h3>
+        <p class="dimnote" data-i18n="modal.disconnect_hint">Esto cierra la sesión actual — después usa "Ver QR / Reconectar" para escanear un QR nuevo sin reiniciar.</p>
+        <div class="field"><button class="btn danger block" type="button" id="disconnect_confirm" data-i18n="action.confirm_disconnect">Sí, desconectar</button></div>
+        <p id="disconnect_result" class="result"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- overlay: login (estado inicial si no hay sesión) -->
+  <div class="overlay hidden" id="loginmodal">
+    <div class="term modal">
+      <div class="titlebar">
+        <span class="mdot r"></span><span class="mdot y"></span><span class="mdot g"></span>
+        <span class="path"><b>piumy</b>@gateway: login</span>
+      </div>
+      <div class="screen">
+        <div class="login-head">
+          <div class="face sm" role="img" aria-label="Cara viva del gateway" data-i18n-aria-label="aria.gateway_face">
+            <span class="paren">(</span><span class="eye">◕</span><span class="mouth">‿</span><span class="eye">◕</span><span class="paren">)</span>
+          </div>
+          <span class="who"><b>piumy</b>@gateway</span>
+        </div>
+        <div class="field"><label data-i18n="label.username">Usuario</label><input class="inp" id="login_user" type="text" value="admin"></div>
+        <div class="field"><label data-i18n="label.password">Contraseña</label><input class="inp" id="login_pass" type="password" placeholder="piumy"></div>
+        <div class="field"><button class="btn pri block" type="button" id="login_submit" data-i18n="action.sign_in">Entrar</button></div>
+        <p id="login_result" class="result"></p>
+        <p class="dimlink"><a href="#" id="recover_link" data-i18n="link.forgot_password">¿Olvidaste la contraseña? · Recuperar</a></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- overlay: recuperar contraseña (WhatsApp o correo) -->
+  <div class="overlay hidden" id="recovermodal">
+    <div class="term modal">
+      <div class="titlebar">
+        <span class="mdot r"></span><span class="mdot y"></span><span class="mdot g"></span>
+        <span class="path"><b>piumy</b>@gateway: <span data-i18n="titlebar.recover">recuperar</span></span>
+        <span class="spacer"></span>
+        <button class="close-x" type="button" id="recover_cancel" aria-label="Cerrar" data-i18n-aria-label="action.close">✕</button>
+      </div>
+      <div class="screen">
+        <h3 class="modal-title" data-i18n="modal.recover_title">Recuperar contraseña</h3>
+        <p class="modal-sub" data-i18n="modal.recover_hint">Elige cómo recibir el código. Vence en 10 minutos, un solo uso.</p>
+        <div class="field"><button class="btn gho block" type="button" id="recover_send_whatsapp" data-i18n="action.send_whatsapp">Enviar por WhatsApp</button></div>
+        <div class="field"><button class="btn gho block" type="button" id="recover_send_email" data-i18n="action.send_email">Enviar por correo</button></div>
+        <p id="recover_send_result" class="result"></p>
+
+        <div class="divider"></div>
+        <div class="field"><label data-i18n="label.recovery_code">Código (6 dígitos)</label><input class="inp" id="recover_code" type="text" inputmode="numeric" maxlength="6" placeholder="123456"></div>
+        <div class="field"><label data-i18n="label.new_password">Nueva contraseña</label><input class="inp" id="recover_new" type="password" placeholder="nueva contraseña" data-i18n-placeholder="placeholder.new_password"></div>
+        <div class="field"><label data-i18n="label.confirm_password">Repetir contraseña</label><input class="inp" id="recover_repeat" type="password" placeholder="repetir contraseña" data-i18n-placeholder="placeholder.repeat_password"></div>
+        <div class="field"><button class="btn pri block" type="button" id="recover_submit" data-i18n="action.reset_password">Restablecer</button></div>
+        <p id="recover_result" class="result"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- overlay: QR -->
+  <div class="overlay hidden" id="qroverlay">
+    <div class="term modal">
+      <div class="titlebar">
+        <span class="mdot r"></span><span class="mdot y"></span><span class="mdot g"></span>
+        <span class="path"><b>piumy</b>@gateway: qr</span>
+        <span class="spacer"></span>
+        <button class="close-x" type="button" id="qrclose" aria-label="Cerrar" data-i18n-aria-label="action.close">✕</button>
+      </div>
+      <div class="screen" id="qrbox">
+        <img id="qrimg" src="" alt="QR de WhatsApp" data-i18n-alt="alt.qr">
+        <p class="dimnote" id="qrnote">Escanea con WhatsApp → Dispositivos vinculados</p>
+        <p class="qr-expiry" id="qrexpiry"></p>
+        <button class="btn pri hidden" type="button" id="qrrefresh" data-i18n="action.refresh_qr">🔄 Refrescar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- agentpaste.js ANTES de app.js (T73, ct-2026-08-27-1713) — lógica pura
+       de parseo del pegado de credenciales, sin document/fetch a propósito
+       para poder testearla con Node; app.js la llama por nombre directo. -->
+  <script src="/dashboard/agentpaste.js"></script>
+  <script src="/dashboard/app.js"></script>
+</body>
+</html>

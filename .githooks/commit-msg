@@ -1,0 +1,68 @@
+#!/bin/sh
+# CleverCoder — instalado por ContractCommitMsgHook (ct-2026-08-29-1634 V5). No editar a
+# mano: se reescribe si el instalador reconoce una version anterior propia. Completa
+# "Contract: <id>" con el FOCO del mineral; si no hay foco, con los ids de
+# clevercoder.commit-contracts (los contratos que integra ESTE commit, seteada por el
+# agente en el acto de commitear, separados por coma — se consume y LIMPIA siempre).
+# Sin ninguno: bloquea el commit SOLO si clevercoder.focus-enforce esta en true
+# (apagado por default, lo prende el boss) — mientras no lo este, igual que V4.
+#
+# T114 (ct-2026-09-01-1905, piumy-gateway — NO CleverCoder): el bloque de acá
+# abajo (hasta el siguiente "---") revisa el MENSAJE del commit por datos
+# personales, mismo patron que .githooks/pre-commit ya usa para el diff — un
+# commit con un identificador real EN SU PROPIO TEXTO se coló antes (ver
+# constitution.md §2b), y pre-commit nunca lo iba a ver porque solo mira lo
+# que se commitea, no el mensaje. ESTE ARCHIVO no esta versionado por git
+# (solo pre-commit lo está) — es un artefacto que CleverCoder regenera local
+# en cada worktree. Si CleverCoder lo reescribe y este bloque desaparece,
+# alguien tiene que volver a sumarlo — no hay forma de que sobreviva un
+# reinstall del hook sin intervención humana; queda anotado acá para quien
+# lo encuentre.
+MSG_FILE="$1"
+HOOK_DIR="$(dirname "$0")"
+if [ -f "$HOOK_DIR/personal-data-patterns.sh" ]; then
+  . "$HOOK_DIR/personal-data-patterns.sh"
+  hits=$(grep -nP "$personal_data_pat" "$MSG_FILE" 2>/dev/null | head -20)
+  if [ -n "$hits" ]; then
+    echo ""
+    echo "  COMMIT RECHAZADO - datos personales en el MENSAJE del commit"
+    echo ""
+    echo "  Se detecto algo con forma de telefono real o JID de WhatsApp en el"
+    echo "  texto del mensaje (no en los archivos). Este repositorio se publica:"
+    echo "  el mensaje queda en el historial igual que el codigo."
+    echo ""
+    echo "  Lineas (recortadas):"
+    echo "$hits" | cut -c1-100 | sed 's/^/    /'
+    echo ""
+    echo "  Que hacer: reescribi el mensaje sin el identificador real. Si"
+    echo "  necesitas un ejemplo, usa el prefijo 555."
+    echo ""
+    echo "  Detalle: .clevercoder/constitution.md, seccion 2b."
+    echo ""
+    exit 1
+  fi
+fi
+# --- fin del bloque T114 ---
+LIST=$(git config --local --default "" --get clevercoder.commit-contracts 2>/dev/null)
+if [ -n "$LIST" ]; then git config --local --unset clevercoder.commit-contracts 2>/dev/null; fi
+grep -qE '^[[:space:]]*Contract:[[:space:]]*ct-' "$MSG_FILE" 2>/dev/null && exit 0
+[ -z "$CLEVERCODER_PARTY_MY_ID" ] && exit 0
+if [ -n "$LIST" ]; then
+  printf '\n' >> "$MSG_FILE"
+  IFS=','
+  for CID2 in $LIST; do
+    CID2=$(printf '%s' "$CID2" | tr -d '[:space:]')
+    [ -z "$CID2" ] && continue
+    printf 'Contract: %s\n' "$CID2" >> "$MSG_FILE"
+  done
+  exit 0
+fi
+CID=$(git config --local --default "" --get "clevercoder.focus-contract.$CLEVERCODER_PARTY_MY_ID" 2>/dev/null)
+if [ -n "$CID" ]; then
+  printf '\nContract: %s\n' "$CID" >> "$MSG_FILE"
+  exit 0
+fi
+ENFORCE=$(git config --local --default "false" --get clevercoder.focus-enforce 2>/dev/null) || exit 0
+[ "$ENFORCE" != "true" ] && exit 0
+echo "CleverCoder: no tenes foco puesto y este commit no declara contratos. Pedile a tu leader que te asigne foco (contracts_set_focus) o declarar los ids del commit (git config clevercoder.commit-contracts 'ct-...,ct-...') y volve a commitear." >&2
+exit 1

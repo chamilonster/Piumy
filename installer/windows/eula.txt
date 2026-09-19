@@ -1,0 +1,7 @@
+Piumy se entrega tal cual, sin garantía de ningún tipo. Quien lo instala lo usa bajo su propia responsabilidad. No respondemos por daños, pérdida de datos, ni por interrupciones del servicio.
+
+Piumy se conecta a WhatsApp por una vía no oficial. WhatsApp puede limitar, suspender o bloquear de forma permanente la cuenta que se vincule. Ese riesgo lo asume quien lo usa. Piumy incluye medidas para reducirlo, pero nadie puede garantizar que no ocurra.
+
+Los mensajes que salgan de tu cuenta son tu responsabilidad, los escribas tú o los escriba un agente automático en tu nombre.
+
+Tus datos se quedan en tu computador. Piumy guarda las conversaciones, reglas y la sesión de WhatsApp localmente. No se envía nada a ningún servidor nuestro, porque no hay ninguno.
