@@ -721,7 +721,7 @@ func main() {
 	// trayLangChanged (above) is what keeps the menu in sync after that —
 	// Opciones' language change doesn't wait for a restart.
 	trayRaw, _ := s.KVGet(store.SettingLanguage)
-	runTrayOrWait(ctx, stop, "http://localhost:"+restPort+"/dashboard", i18n.Resolve(trayRaw), trayLangChanged)
+	runTrayOrWait(ctx, stop, "http://localhost:"+restPort+"/dashboard", i18n.Resolve(trayRaw), trayLangChanged, cfg.Account)
 	log.Println("piumy-gateway shutting down")
 
 	// Orden de apagado: dejar de aceptar tráfico nuevo -> drenar el

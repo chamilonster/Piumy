@@ -18,10 +18,21 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 )
 
 type Config struct {
+	// Account is PIUMY_ACCOUNT, already trimmed (S1/S2, ct-2026-09-20-1100/
+	// 1134) — empty means the default, single-account install (today's only
+	// case before S1). This is the ONE place that reads the raw env var for
+	// display/identity purposes; DataDir() (datadir.go) and the port
+	// defaults below also read PIUMY_ACCOUNT directly, each for its OWN
+	// reason (folder layout, port collision) — a third consumer (the tray,
+	// S2) reads it from HERE instead, cableado desde la fuente, not a
+	// fourth raw os.Getenv.
+	Account string
+
 	// DBPath is piumy-gateway's own store.db (chats/messages/rules, F1a) —
 	// the conversation history itself. Defaults under DataDir()/secrets
 	// (T169, ct-2026-09-19-1433) — no longer PIUMY_DB_PATH-required with no
@@ -320,6 +331,14 @@ func Load() (Config, error) {
 	}
 	secretsDir := filepath.Join(dataDir, "secrets")
 
+	// account: read ONCE here, trimmed — DataDir() (called just above) has
+	// already validated it via accountSlug if it's non-empty, so trimming
+	// again is safe and can't newly fail. Every other PIUMY_ACCOUNT
+	// consumer in this package (DataDir/dataDirFor) reads the env var
+	// directly for its OWN reason; this is the one read whose RESULT other
+	// packages (the tray, S2) are meant to consume, via cfg.Account.
+	account := strings.TrimSpace(os.Getenv("PIUMY_ACCOUNT"))
+
 	// mcpAddrDefault/restAddrDefault: with PIUMY_ACCOUNT set, the fixed
 	// :8091/:8092 default would make a second account's instance fail to
 	// bind against the first's (S1, ct-2026-09-20-1100) — ":0" lets the OS
@@ -327,11 +346,12 @@ func Load() (Config, error) {
 	// still wins either way (env() below), so a pinned port keeps working
 	// exactly like today for whoever sets one on purpose.
 	mcpAddrDefault, restAddrDefault := ":8091", ":8092"
-	if os.Getenv("PIUMY_ACCOUNT") != "" {
+	if account != "" {
 		mcpAddrDefault, restAddrDefault = ":0", ":0"
 	}
 
 	cfg := Config{
+		Account:           account,
 		DBPath:            envPath("PIUMY_DB_PATH", secretsDir, "piumy.db"),
 		MCPKey:            os.Getenv("PIUMY_MCP_KEY"),
 		DefaultTerminalID: os.Getenv("PIUMY_DEFAULT_TERMINAL_ID"),

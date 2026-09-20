@@ -87,6 +87,34 @@ func TestF5AddrEnvOverrides(t *testing.T) {
 	}
 }
 
+// TestLoadAccountField is S2's own case (ct-2026-09-20-1134): cfg.Account
+// is the ONE place other packages (the tray) read PIUMY_ACCOUNT from —
+// trimmed, and empty when the var isn't set (today's single-account case).
+func TestLoadAccountField(t *testing.T) {
+	t.Setenv("PIUMY_DATA_DIR", t.TempDir())
+
+	t.Run("unset stays empty", func(t *testing.T) {
+		cfg, err := Load()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cfg.Account != "" {
+			t.Errorf("Account = %q, want empty", cfg.Account)
+		}
+	})
+
+	t.Run("set and trimmed", func(t *testing.T) {
+		t.Setenv("PIUMY_ACCOUNT", "  trabajo  ")
+		cfg, err := Load()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cfg.Account != "trabajo" {
+			t.Errorf("Account = %q, want %q", cfg.Account, "trabajo")
+		}
+	})
+}
+
 // TestLoadAccountSetDefaultsPortsToZero is S1's own case
 // (ct-2026-09-20-1100): with PIUMY_ACCOUNT set and no explicit
 // PIUMY_MCP_ADDR/PIUMY_REST_ADDR, the port default must be ":0" (OS picks

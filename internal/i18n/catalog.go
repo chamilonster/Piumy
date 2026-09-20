@@ -461,6 +461,13 @@ var esCatalog = map[string]string{
 	"server.tray_quit_tooltip":           "Cerrar piumy-gateway",
 	"server.tray_version_tooltip":        "Versión de piumy-gateway corriendo",
 
+	// server.tray_account — S2 (ct-2026-09-20-1134): el ítem de menú (y el
+	// título/tooltip del ícono) que muestra qué cuenta es esta instancia,
+	// cuando hay una (PIUMY_ACCOUNT). Solo la ETIQUETA se traduce — el
+	// nombre de cuenta en sí es un dato, nunca texto de interfaz, se pasa
+	// por el hueco {account} sin pasar por acá.
+	"server.tray_account": "Cuenta: {account}",
+
 	// server.recovery_email_* — etapa 3d (T162, ct-2026-09-16-1916): el
 	// email de recuperación (deliverRecoveryEmail, recover.go) — el hueco
 	// que 3a dejó a propósito ("solo los avisos que salen por WhatsApp") y
@@ -806,6 +813,9 @@ var enCatalog = map[string]string{
 	"server.tray_quit":                   "Quit",
 	"server.tray_quit_tooltip":           "Close piumy-gateway",
 	"server.tray_version_tooltip":        "piumy-gateway version currently running",
+
+	// server.tray_account — see the matching comment in esCatalog.
+	"server.tray_account": "Account: {account}",
 
 	// server.recovery_email_* — see the matching comment in esCatalog.
 	"server.recovery_email_subject": "Piumy Gateway recovery code",

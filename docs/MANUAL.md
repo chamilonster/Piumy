@@ -127,6 +127,13 @@ solo los campos que sus propios paquetes necesitan.
     un error de arranque explícito, nunca un colapso silencioso fuera de
     `accounts/`. Sin `PIUMY_ACCOUNT`, cero cambio de comportamiento — mismo
     directorio de siempre. Ver `docs/S1-DIAGRAMA-MULTICUENTA-AISLAMIENTO.md`.
+  - **`Config.Account string`** (S2, `ct-2026-09-20-1134`) — `PIUMY_ACCOUNT`
+    ya trimeado, LA fuente para cualquier consumidor que no sea `DataDir`/
+    el default de puertos (ambos siguen leyendo el env var directo, cada
+    uno por su propia razón). Hoy el único consumidor es la bandeja
+    (`main.go` → `runTrayOrWait(..., cfg.Account)`) — cablear desde acá en
+    vez de un tercer `os.Getenv` es la regla del proyecto. Ver
+    `docs/S2-DIAGRAMA-DISTINTIVO-VISUAL.md`.
   - **`envPath(k, secretsDir, def string) string`** (`config.go`) — el
     reemplazo de `env()` para toda ruta de archivo de datos: la variable de
     entorno, VERBATIM si está puesta (nunca se le une nada — así la
@@ -10239,14 +10246,52 @@ es un paso aparte, conjunto con el boss (no en `main.go`).
   `ctx` raíz (no uno propio como `Controller`), así que `ctx.Done()` ya
   los para solos.
 - **Tray de Windows** (F3, ct-2026-07-10-2312) — `runTrayOrWait(ctx, stop,
-  dashboardURL, lang, langChanged)` reemplaza el antiguo `<-ctx.Done()`
-  desnudo, misma capa (`package main`, junto a `main.go`), build-tag gated:
-  - **i18n (T153 etapa 3c, ct-2026-09-16-1854):** los 5 textos del menú —
-    "Abrir dashboard"/tooltip, "Salir"/tooltip, tooltip del ítem de
-    versión — pasan por `i18n.T(lang, "server.tray_*")`, catálogo en
+  dashboardURL, lang, langChanged, account)` (`account` agregado en S2,
+  ct-2026-09-20-1134) reemplaza el antiguo `<-ctx.Done()` desnudo, misma
+  capa (`package main`, junto a `main.go`), build-tag gated:
+  - **S2 (ct-2026-09-20-1134) — distintivo visual por cuenta.** Boss
+    verbatim (2026-09-19): *"tambien que se pueden abrir multiples
+    piumys, en ese caso que el logo cambie de color y el tray diga que
+    'nombre de cuenta es'"*. `account` viene de `cfg.Account`
+    (`internal/config`, ver la sección `config` arriba) — cableado desde
+    la fuente, nunca un tercer `os.Getenv("PIUMY_ACCOUNT")`.
+    - **Título/tooltip del ícono:** `"Piumy Gateway — " + account` con
+      cuenta, exactamente `"Piumy Gateway"` sin ella — cero cambio en el
+      caso sin cuenta (99% de los casos).
+    - **Ítem de menú** deshabilitado, al lado del de versión —
+      `i18n.T(lang, "server.tray_account", "account", account)`
+      (`"Cuenta: {account}"` es / `"Account: {account}"` en) — SOLO existe
+      cuando hay cuenta. Se re-renderiza en el `case newLang :=
+      <-langChanged:` igual que `mOpen`/`mQuit`/`mVersion`.
+    - **Tensión con T37 (abajo), a propósito, no un olvido:** T37 acotó la
+      VERSIÓN al ítem de menú porque su trabajo es informar. El nombre de
+      cuenta va en título + tooltip + ítem porque su trabajo es impedir un
+      click equivocado entre dos instancias — y el mouse pasa por encima
+      ANTES del click, así que el tooltip también tiene que decirlo.
+      Comentario en el código mismo para que nadie "corrija" esto pensando
+      que contradice T37.
+    - **El color — `RecolorTrayIcon(trayIcon, account)`**, ver el bullet
+      propio de `trayicon_recolor.go` más abajo. Cualquier error cae al
+      ícono embebido sin tocar + `log.Printf("tray: recolor icon...")`.
+    - Verificado con captura real (instancia aislada, mismo método que T37
+      — nunca la instalación viva del dueño): dos cuentas a la vez, en la
+      bandeja de Windows, dan dos colores CLARAMENTE distintos entre sí y
+      del verde de marca (rosa/amarillo en la corrida real), cada menú con
+      su `"Cuenta: <nombre>"` propio; sin cuenta, el menú es idéntico a
+      antes de S2 (solo versión + Abrir dashboard + Salir, sin ítem de
+      cuenta) y el ícono es indistinguible del de una instalación default
+      (esperado — ver docs/S2-DIAGRAMA-DISTINTIVO-VISUAL.md).
+  - **i18n (T153 etapa 3c, ct-2026-09-16-1854; +1 clave en S2,
+    ct-2026-09-20-1134):** los textos del menú — "Abrir dashboard"/
+    tooltip, "Salir"/tooltip, tooltip del ítem de versión, y desde S2
+    `"Cuenta: {account}"` (ítem de cuenta, solo con `PIUMY_ACCOUNT`) —
+    pasan por `i18n.T(lang, "server.tray_*")`, catálogo en
     `internal/i18n/catalog.go`. `"Piumy Gateway"` (título/tooltip del
-    ícono, prefijo del ítem de versión) NUNCA se traduce, es el nombre del
-    producto. `lang` es el idioma resuelto UNA vez al arrancar
+    ícono, prefijo del ítem de versión) y el nombre de cuenta en sí NUNCA
+    se traducen — son el nombre del producto y un dato, no texto de
+    interfaz; solo la etiqueta `"Cuenta: "`/`"Account: "` alrededor del
+    nombre pasa por el catálogo. `lang` es el idioma resuelto UNA vez al
+    arrancar
     (`main.go`: `i18n.Resolve(s.KVGet(SettingLanguage))`, misma regla que
     `restapi.effectiveLang`/`capipush.Pusher.lang()`). `langChanged
     <-chan i18n.Lang` (buffer 1, envío no bloqueante) es el canal por el
@@ -10296,17 +10341,61 @@ es un paso aparte, conjunto con el boss (no en `main.go`).
     "Abrir dashboard" → `openAppWindow` (T62, ct-2026-08-11-1527, reporte
     del dueño: "es como que en vez de abrir la web, usan un terminal para
     hacerlo" — reescrito de raíz, ver el bullet propio abajo).
-    `systray.SetIcon(trayIcon)` — `trayIcon` es `assets/tray.ico` embebido
-    (`//go:embed`, cero deps nuevas). El .ico (una "P" blanca sobre un
-    círculo azul de marca #4A90D2, 32×32) se generó UNA vez con un
-    programa descartable stdlib-only (`image`/`image/draw`/`image/png` +
-    un wrapper mínimo de contenedor ICO a mano — Windows Vista+ acepta PNG
-    directo adentro de un ICONDIRENTRY, no hace falta BMP) y quedó
-    committeado como asset estático; el generador no es parte del build.
+    `systray.SetIcon(icon)` — `icon` es el resultado de
+    `RecolorTrayIcon(trayIcon, account)` (S2), `trayIcon` siendo
+    `assets/tray.ico` embebido (`//go:embed`, cero deps nuevas) sin tocar.
+    **Corrección de este mismo MANUAL (S2, ct-2026-09-20-1134):** la
+    descripción anterior acá ("P blanca sobre círculo azul #4A90D2,
+    32×32, un solo tamaño") quedó desactualizada por un cambio de asset
+    posterior no documentado — el archivo real, verificado byte a byte al
+    escribir S2, es un ICO clásico de **3 imágenes (16×16/32×32/48×48,
+    32 bpp, payload PNG cada una), 4863 bytes** (cabecera ICONDIR de 6
+    bytes + 3 ICONDIRENTRY de 16 bytes + los 3 PNG) — la "carita" verde
+    fósforo sobre negro que el propio comentario de `trayIcon` ya
+    describe correctamente. Generador descartable original no
+    re-verificado — el asset commiteado es la fuente de verdad, no el
+    programa que lo hizo.
     Verificado en vivo (`systray.SetIcon` con los bytes reales, proceso
     corrió sin error) antes de reportar.
+  - **`trayicon_recolor.go` (S2, ct-2026-09-20-1134) — SIN build tag**,
+    a propósito: es aritmética de imagen pura, ningún símbolo de Windows,
+    así que su test (`trayicon_recolor_test.go`) corre en cualquier
+    plataforma aunque solo `tray_windows.go` lo llame hoy.
+    - **`RecolorTrayIcon(icoData []byte, account string) ([]byte, error)`**
+      — botón principal. `account == ""` devuelve `icoData` **sin tocar**
+      (mismo slice, ni siquiera una copia) — el 99% de los casos nunca
+      entra al parseo. Cualquier fallo (contenedor corrupto, PNG inválido,
+      encode fallido) devuelve `icoData` original + el error — el llamador
+      loguea y sigue con el ícono normal, un ícono roto nunca frena el
+      arranque.
+    - **`parseICO`/`buildICO`** — el contenedor clásico ICONDIR (6 bytes) +
+      N ICONDIRENTRY (16 bytes c/u) + los payloads PNG, leído/reescrito a
+      mano (`encoding/binary`, sin librería — no existe una en stdlib).
+      `buildICO` preserva width/height/colorCount/reserved/planes/bitCount
+      de cada entrada verbatim; solo `bytesInRes`/`imageOffset` cambian
+      (el PNG re-encodeado rara vez pesa exactamente igual).
+    - **`rotateHue(img, deltaDegrees) *image.NRGBA`** — por píxel: RGB→HSV
+      (`rgbToHSV`/`hsvToRGB`, a mano — stdlib no tiene HSV), `H += delta`,
+      **S/V/alfa intactos**. Convierte por `color.NRGBAModel` (alfa NO
+      premultiplicado) antes de la matemática — con alfa premultiplicado
+      el RGB se escala hacia negro cuando el alfa baja, ensuciando el tono
+      de los bordes suavizados del ícono. Por qué rotación y no reemplazo
+      plano: al no tocar S/V, un píxel negro (saturación 0) o transparente
+      (alfa 0) queda intacto SOLO, sin caso especial, y el borde suavizado
+      sigue suavizado.
+    - **`hueDeltas`/`hueIndex(account)`** — paleta fija de 7 deltas, 45°
+      aparte, ninguno en 0 (0 = el verde de marca sin cambio) — nunca
+      `hash % 360`, que podría separar dos cuentas por unos pocos grados
+      (indistinguibles, justo lo que S2 viene a evitar). Índice vía
+      FNV-32a (`hash/fnv`, stdlib, sin semilla — determinista entre
+      procesos, a diferencia del hash de mapas de Go) — la misma cuenta
+      cae siempre en el mismo color.
+    - Verificado con captura real, no solo con el test — ver el bullet de
+      S2 más arriba.
   - `tray_other.go` (`//go:build !windows`): no-op, `<-ctx.Done()` — el
-    build headless/Linux no cambia en nada.
+    build headless/Linux no cambia en nada. `account` en la firma sin
+    usar, mismo motivo que `lang`/`langChanged`: un solo signature para
+    los dos build tags.
   - `dashboardURL` = `"http://localhost:" + restPort + "/dashboard"`, con
     `restPort` extraído del listener REAL vía `net.SplitHostPort` (S1,
     ct-2026-09-20-1100 — ver "Config nueva" arriba); antes de S1 era

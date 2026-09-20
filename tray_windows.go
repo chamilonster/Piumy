@@ -39,7 +39,7 @@ var trayIcon []byte
 // only — verified with an explicit CGO_ENABLED=0 build before adding this
 // dependency; its only cgo file is systray_darwin.go, never compiled here) —
 // CGO_ENABLED=0 stays intact, the project's central invariant.
-func runTrayOrWait(ctx context.Context, stop context.CancelFunc, dashboardURL string, lang i18n.Lang, langChanged <-chan i18n.Lang) {
+func runTrayOrWait(ctx context.Context, stop context.CancelFunc, dashboardURL string, lang i18n.Lang, langChanged <-chan i18n.Lang, account string) {
 	systray.Run(func() {
 		// T37 (ct-2026-08-08-1433, boss: "quiero que el tray diga la version
 		// de piumy" — acotado después, verbatim: "en el tray en el menú, no
@@ -49,12 +49,34 @@ func runTrayOrWait(ctx context.Context, stop context.CancelFunc, dashboardURL st
 		// "Piumy Gateway" NO se traduce (T153 etapa 3c, ct-2026-09-16-1854):
 		// es el nombre del producto, en SetTitle/SetTooltip y acá en el
 		// texto del ítem de versión — nunca pasa por i18n.T, en ningún
-		// idioma.
-		systray.SetIcon(trayIcon)
-		systray.SetTitle("Piumy Gateway")
-		systray.SetTooltip("Piumy Gateway")
+		// idioma. El nombre de cuenta (S2, ct-2026-09-20-1134) tampoco se
+		// traduce nunca — es un dato, no texto de interfaz.
+		//
+		// Tensión con T37, a propósito, no un olvido: T37 acotó la VERSIÓN
+		// al ítem de menú porque su trabajo es informar. El nombre de
+		// cuenta va en título + tooltip + ítem porque su trabajo es
+		// impedir un click equivocado entre dos instancias — y el mouse
+		// pasa por encima ANTES del click, así que el tooltip también
+		// tiene que decirlo. No "corregir" esto para que quede igual a la
+		// versión: son dos jobs distintos.
+		title := "Piumy Gateway"
+		if account != "" {
+			title = "Piumy Gateway — " + account
+		}
+		icon, err := RecolorTrayIcon(trayIcon, account)
+		if err != nil {
+			log.Printf("tray: recolor icon for account %q: %v — usando el ícono normal", account, err)
+		}
+		systray.SetIcon(icon)
+		systray.SetTitle(title)
+		systray.SetTooltip(title)
 		mVersion := systray.AddMenuItem("Piumy Gateway "+version.Version, i18n.T(lang, "server.tray_version_tooltip"))
 		mVersion.Disable()
+		var mAccount *systray.MenuItem
+		if account != "" {
+			mAccount = systray.AddMenuItem(i18n.T(lang, "server.tray_account", "account", account), i18n.T(lang, "server.tray_account", "account", account))
+			mAccount.Disable()
+		}
 		mOpen := systray.AddMenuItem(i18n.T(lang, "server.tray_open_dashboard"), i18n.T(lang, "server.tray_open_dashboard_tooltip"))
 		mQuit := systray.AddMenuItem(i18n.T(lang, "server.tray_quit"), i18n.T(lang, "server.tray_quit_tooltip"))
 
@@ -85,6 +107,10 @@ func runTrayOrWait(ctx context.Context, stop context.CancelFunc, dashboardURL st
 					mQuit.SetTitle(i18n.T(newLang, "server.tray_quit"))
 					mQuit.SetTooltip(i18n.T(newLang, "server.tray_quit_tooltip"))
 					mVersion.SetTooltip(i18n.T(newLang, "server.tray_version_tooltip"))
+					if mAccount != nil {
+						mAccount.SetTitle(i18n.T(newLang, "server.tray_account", "account", account))
+						mAccount.SetTooltip(i18n.T(newLang, "server.tray_account", "account", account))
+					}
 				case <-ctx.Done():
 					stop()
 					systray.Quit()
