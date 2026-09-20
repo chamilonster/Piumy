@@ -309,10 +309,10 @@ func buildOggPages(t *testing.T, packetSizes []int) []byte {
 		segs = append(segs, byte(remaining))
 
 		buf.WriteString("OggS")
-		buf.WriteByte(0)            // version
-		buf.WriteByte(0)            // header_type (BOS/EOS unused by the parser)
-		buf.Write(make([]byte, 8))  // granule position, unused
-		must(t, binary.Write(&buf, binary.LittleEndian, uint32(1)))    // serial
+		buf.WriteByte(0)                                              // version
+		buf.WriteByte(0)                                              // header_type (BOS/EOS unused by the parser)
+		buf.Write(make([]byte, 8))                                    // granule position, unused
+		must(t, binary.Write(&buf, binary.LittleEndian, uint32(1)))   // serial
 		must(t, binary.Write(&buf, binary.LittleEndian, uint32(seq))) // sequence
 		must(t, binary.Write(&buf, binary.LittleEndian, uint32(0)))   // crc, unchecked
 		buf.WriteByte(byte(len(segs)))

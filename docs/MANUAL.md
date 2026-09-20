@@ -11,6 +11,15 @@ botón (función/tipo exportado), actualizar la sección del nodo
 correspondiente en el mismo commit — es parte de la disciplina de cierre,
 igual que el diagrama Mermaid y el build verde.
 
+**`gofmt` y comillas en doc-comments (medido, ct-2026-09-20-1254):** en un
+doc-comment (el que precede directo a una declaración), `gofmt -w`
+convierte dos backticks en comilla tipográfica de apertura (`` “ ``) y `''`
+en la de cierre (`”`) — convención deliberada de `go/doc/comment` (estilo
+TeX/godoc), no un bug ni algo que corregir a mano después. Los doc-comments
+de Go NO tienen code spans de Markdown — un backtick suelto no protege
+`''` literal. Lo único que sí lo protege es un **bloque de código
+indentado** dentro del doc-comment.
+
 ## Cómo se conectan (vista de alto nivel)
 
 ```mermaid

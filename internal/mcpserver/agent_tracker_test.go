@@ -167,7 +167,7 @@ func TestAgentTrackerPingRaceDoesNotClobberRealActivity(t *testing.T) {
 	tr := newTestTracker(t, time.Minute, nil)
 	tr.pingAgent = func(terminalID string) bool {
 		tr.sessions["sess1"] = sessionInfo{lastSeen: time.Now(), terminalID: terminalID} // a real call landed mid-ping
-		return false                                                                    // ...and the ping itself still times out
+		return false                                                                     // ...and the ping itself still times out
 	}
 	tr.sessions["sess1"] = sessionInfo{lastSeen: time.Now().Add(-2 * time.Minute), terminalID: "term-racy"}
 
