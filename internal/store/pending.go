@@ -255,8 +255,8 @@ func (s *Store) CountPendingDedicated() (int, error) {
 	err := s.db.QueryRow(`SELECT COUNT(*) FROM messages m
 		JOIN chats c ON c.jid = m.chat_jid
 		WHERE m.from_me = 0 AND m.handled = 0 AND c.mode IN ('dedicated', 'auto')
-		AND (c.is_boss = 1 OR (c.active = 1 AND `+offStatusSQL+`))
-		AND `+notStatusBroadcastSQL+``).Scan(&count)
+		AND (c.is_boss = 1 OR (c.active = 1 AND ` + offStatusSQL + `))
+		AND ` + notStatusBroadcastSQL + ``).Scan(&count)
 	return count, err
 }
 

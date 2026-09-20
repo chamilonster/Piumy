@@ -273,13 +273,13 @@ func TestPrincipalAgentSynthesizesFromKV(t *testing.T) {
 // all be accepted — none of them is a public address.
 func TestSetPrincipalAgentAllowsPrivateNetworkEndpoint(t *testing.T) {
 	for _, endpoint := range []string{
-		"http://192.168.1.10:8787",  // Raspberry Pi on the LAN — the actual regression
-		"http://10.0.0.5:8787",      // RFC1918 10/8
-		"http://172.16.4.4:8787",    // RFC1918 172.16/12
-		"http://localhost:8787",     // not a literal IP at all
+		"http://192.168.1.10:8787", // Raspberry Pi on the LAN — the actual regression
+		"http://10.0.0.5:8787",     // RFC1918 10/8
+		"http://172.16.4.4:8787",   // RFC1918 172.16/12
+		"http://localhost:8787",    // not a literal IP at all
 		"http://raspberrypi.local:8787",
-		"http://[::1]:8787",         // IPv6 loopback
-		"http://[fd00::1]:8787",     // IPv6 ULA (RFC4193)
+		"http://[::1]:8787",     // IPv6 loopback
+		"http://[fd00::1]:8787", // IPv6 ULA (RFC4193)
 	} {
 		s, err := Open(filepath.Join(t.TempDir(), "piumy.db"))
 		if err != nil {
@@ -301,7 +301,7 @@ func TestSetPrincipalAgentAllowsPrivateNetworkEndpoint(t *testing.T) {
 // ErrPrincipalEndpointPublic so callers can map it to 400.
 func TestSetPrincipalAgentRejectsPublicEndpoint(t *testing.T) {
 	for _, endpoint := range []string{
-		"http://8.8.8.8:8787",           // a public IP
+		"http://8.8.8.8:8787",              // a public IP
 		"http://antenita.example.com:8787", // a public domain
 	} {
 		s, err := Open(filepath.Join(t.TempDir(), "piumy.db"))
@@ -330,7 +330,7 @@ func TestSetPrincipalAgentRejectsPublicEndpoint(t *testing.T) {
 // below for the other half of that distinction.
 func TestSetPrincipalAgentRejectsCloudMetadataEndpoint(t *testing.T) {
 	for _, endpoint := range []string{
-		"http://169.254.169.254:8787",       // the actual regression, cAPI's usual port
+		"http://169.254.169.254:8787",                 // the actual regression, cAPI's usual port
 		"http://169.254.169.254:80/latest/meta-data/", // a different port + path — must not slip through on either
 	} {
 		s, err := Open(filepath.Join(t.TempDir(), "piumy.db"))

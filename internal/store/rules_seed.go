@@ -31,11 +31,12 @@ var factorySeeds = []struct{ key, val string }{
 // distinct from KVGet's "" fallback, which can't tell "never written" apart
 // from "written as an explicit empty string" (KVGet returns "" for both).
 // SeedFactoryRulesIfUnset needs exactly that distinction: an owner who
-// cleared a field on purpose (typed nothing, hit guardar) already has a row
-// with value='' — reseeding it on the next restart would fight a decision
-// he already made, the same class of bug T12 fixed for is_boss (there via a
-// dedicated touched column; here a plain existence check is enough, since
-// nothing else ever writes these keys well before this feature).
+// cleared a field on purpose (typed nothing, hit guardar) already has a
+// row with an explicit empty string as its value — reseeding it on the
+// next restart would fight a decision he already made, the same class of
+// bug T12 fixed for is_boss (there via a dedicated touched column; here a
+// plain existence check is enough, since nothing else ever writes these
+// keys well before this feature).
 func (s *Store) KVExists(key string) (bool, error) {
 	var exists bool
 	err := s.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM kv WHERE key = ?)`, key).Scan(&exists)

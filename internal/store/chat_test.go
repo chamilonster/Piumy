@@ -1552,7 +1552,9 @@ func TestSetterWithDeviceSuffixWritesNormalizedRowNotAGhost(t *testing.T) {
 		{"SetChatDescription", func(s *Store) error { return s.SetChatDescription(dirty, "tema del grupo") },
 			func(t *testing.T, c Chat) { wantEq(t, "Description", c.Description, "tema del grupo") }},
 		{"SetGroupInviteLink", func(s *Store) error { return s.SetGroupInviteLink(dirty, "https://chat.whatsapp.com/x") },
-			func(t *testing.T, c Chat) { wantEq(t, "GroupInviteLink", c.GroupInviteLink, "https://chat.whatsapp.com/x") }},
+			func(t *testing.T, c Chat) {
+				wantEq(t, "GroupInviteLink", c.GroupInviteLink, "https://chat.whatsapp.com/x")
+			}},
 		{"SetContactName", func(s *Store) error { return s.SetContactName(dirty, "Contacto Uno") },
 			func(t *testing.T, c Chat) { wantEq(t, "ContactName", c.ContactName, "Contacto Uno") }},
 		{"MarkConfigManual", func(s *Store) error { return s.MarkConfigManual(dirty) },
