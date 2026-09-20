@@ -38,6 +38,19 @@ var knownBatVars = []string{
 	"PIUMY_BACKUP_KEY", "PIUMY_REST_ADDR",
 }
 
+// accountOwnedPathVars are knownBatVars' data-path entries — the ones a
+// named PIUMY_ACCOUNT owns exclusively (S1, ct-2026-09-20-1100). A shared
+// piumy-config.json sitting next to the binary is the boss's DEFAULT
+// installation's own file: applying its explicit paths to a second named
+// account would silently point that account at the default install's
+// whatsmeow.db — exactly the collision this contract exists to prevent, and
+// invisible until the two accounts actually clash. Keys (PIUMY_MCP_KEY/
+// PIUMY_REST_KEY) are deliberately NOT here — see applyFileVals.
+var accountOwnedPathVars = map[string]bool{
+	"PIUMY_DB_PATH": true, "PIUMY_WA_DB_PATH": true, "PIUMY_ROUTER_PATH": true,
+	"PIUMY_STATUS_PATH": true, "PIUMY_MEDIA_DIR": true, "PIUMY_BACKUP_DIR": true,
+}
+
 // ApplyFileDefaults resolves this running binary's own directory and fills
 // in whatever PIUMY_* env vars aren't already set — from piumy-config.json,
 // or by migrating one from a legacy run-piumy.bat sitting next to it if the
@@ -76,8 +89,22 @@ func ApplyFileDefaultsIn(dir string) error {
 	}
 	// Env var wins, always (T11's explicit rule) — the file only fills in
 	// what's missing, so dev, rl.bat, every existing setup keeps working
-	// exactly as it does today.
+	// exactly as it does today. With PIUMY_ACCOUNT set, the file's own
+	// data-path entries are skipped outright (S1, ct-2026-09-20-1100) — a
+	// named account owns its own paths, under DataDir()'s accounts/<slug>;
+	// everything else (keys included — see accountOwnedPathVars' own doc)
+	// still applies same as always.
+	//
+	// ponytail: PIUMY_MCP_KEY/PIUMY_REST_KEY still come from the default
+	// install's shared file — no installer flow generates per-account keys
+	// yet. Give each account its own keys once the UI that generates them
+	// exists (post-S1 peldaño); until then a new account is unusable to any
+	// agent without them (mcpserver.RequireBearerToken fails closed).
+	skipPaths := os.Getenv("PIUMY_ACCOUNT") != ""
 	for k, v := range vals {
+		if skipPaths && accountOwnedPathVars[k] {
+			continue
+		}
 		if os.Getenv(k) == "" {
 			if err := os.Setenv(k, v); err != nil {
 				return err

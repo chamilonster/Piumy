@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -154,7 +155,18 @@ func main() {
 	// sin haber abierto ni tocado la sesión en absoluto. Distinto del mutex
 	// de acquireAppMutex de arriba (ver singleinstance_windows.go): ese es
 	// best-effort para el instalador, este es autoritativo.
-	if !acquireSingleInstance() {
+	//
+	// S1 (ct-2026-09-20-1100): el candado escala por el directorio de datos
+	// EFECTIVO, no por el nombre de cuenta — dos cuentas distintas resuelven
+	// a dos directorios distintos y arrancan las dos; dos procesos apuntando
+	// al mismo directorio siguen chocando igual que hoy. config.DataDir() es
+	// pura (solo lee entorno) — llamarla de nuevo acá, en vez de guardar un
+	// campo nuevo en Config solo para este único consumidor, es más directo.
+	dataDir, err := config.DataDir()
+	if err != nil {
+		log.Fatalf("config: %v", err)
+	}
+	if !acquireSingleInstance(dataDir) {
 		log.Println("piumy-gateway: ya hay una instancia corriendo — esta instancia sale ahora, sin tocar la sesión de WhatsApp")
 		return
 	}
@@ -205,13 +217,43 @@ func main() {
 	} else if restored {
 		log.Println("governor: freno de emergencia restaurado desde el último apagado — el gateway arranca SIN mandar hasta que se desactive explícitamente")
 	}
+	// mcpLn/restLn: bind NOW, not when Serve() is finally called near the
+	// end of main (S1, ct-2026-09-20-1100) — cfg.MCPAddr/RESTAddr can be
+	// ":0" (PIUMY_ACCOUNT set, no explicit port), and every consumer of the
+	// REAL bound address (agent-connect.json right below, the boot log, the
+	// tray's dashboardURL) needs to know the actual port, not ":0" itself.
+	// Binding early and Serve()-ing later is fine: the socket just queues
+	// connections in its backlog until Serve starts accepting them.
+	mcpLn, err := net.Listen("tcp", cfg.MCPAddr)
+	if err != nil {
+		log.Fatalf("mcp http: listen %s: %v", cfg.MCPAddr, err)
+	}
+	restLn, err := net.Listen("tcp", cfg.RESTAddr)
+	if err != nil {
+		log.Fatalf("rest http: listen %s: %v", cfg.RESTAddr, err)
+	}
+	mcpAddr := mcpLn.Addr().String()
+	restAddr := restLn.Addr().String()
+	// restPort alone (not restAddr whole) is what dashboardURL below needs:
+	// a wildcard bind's Addr() comes back as "[::]:54321"/"0.0.0.0:54321" —
+	// concatenating THAT after "http://localhost" would build a malformed
+	// URL. cfg.RESTAddr never had this problem (always bare ":port", empty
+	// host) until S1 made a real port possible; SplitHostPort is the same
+	// extraction agentconnect.localURL already does for the same reason.
+	_, restPort, err := net.SplitHostPort(restAddr)
+	if err != nil {
+		log.Fatalf("rest http: %s: %v", restAddr, err)
+	}
+
 	// agent-connect.json: written next to status.json (same data dir,
 	// derived from cfg.StatusPath — not a separate hardcoded path) so an
 	// agent on any machine can discover mcp_url/rest_url/mcp_key/rest_key
-	// without parsing the Windows installer's run-piumy.bat.
+	// without parsing the Windows installer's run-piumy.bat. Uses the REAL
+	// bound addresses (mcpAddr/restAddr), not cfg.MCPAddr/RESTAddr — those
+	// can be ":0" and an agent can't dial that.
 	if err := agentconnect.Write(agentconnect.Params{
 		DataDir: filepath.Dir(cfg.StatusPath),
-		MCPAddr: cfg.MCPAddr, RESTAddr: cfg.RESTAddr,
+		MCPAddr: mcpAddr, RESTAddr: restAddr,
 		MCPKey: cfg.MCPKey, RESTKey: cfg.RESTKey,
 	}); err != nil {
 		log.Printf("agentconnect: write agent-connect.json: %v", err)
@@ -591,8 +633,8 @@ func main() {
 	mcpTransport := server.NewStreamableHTTPServer(mcpSrv,
 		server.WithHTTPContextFunc(mcpserver.ExtractTerminalID),
 		server.WithEndpointPath("/mcp"))
-	mcpHTTP := &http.Server{Addr: cfg.MCPAddr, Handler: mcpserver.RequireBearerToken(cfg.MCPKey, mcpTransport)}
-	restHTTP := &http.Server{Addr: cfg.RESTAddr, Handler: restapi.NewMux(restapi.Deps{
+	mcpHTTP := &http.Server{Handler: mcpserver.RequireBearerToken(cfg.MCPKey, mcpTransport)}
+	restHTTP := &http.Server{Handler: restapi.NewMux(restapi.Deps{
 		Bus: bus, Store: s, Governor: gov, State: sm, Router: rt, APIKey: cfg.RESTKey, Connector: cleverInj, Backup: bk,
 		// MediaFetcher: on-demand media FIFO backfill (ct-2026-07-21-1358) —
 		// gw (whatsmeow.Adapter) implements restapi.MediaFetcher.
@@ -658,17 +700,17 @@ func main() {
 	})}
 
 	go func() {
-		if err := mcpHTTP.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := mcpHTTP.Serve(mcpLn); err != nil && err != http.ErrServerClosed {
 			log.Printf("mcp http: %v", err)
 		}
 	}()
 	go func() {
-		if err := restHTTP.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := restHTTP.Serve(restLn); err != nil && err != http.ErrServerClosed {
 			log.Printf("rest http: %v", err)
 		}
 	}()
 
-	log.Printf("piumy-gateway up — mcp=%s rest=%s", cfg.MCPAddr, cfg.RESTAddr)
+	log.Printf("piumy-gateway up — mcp=%s rest=%s", mcpAddr, restAddr)
 	// Windows: shows a tray icon (F3, ct-2026-07-10-2312) and blocks until
 	// "Salir" or Ctrl+C; every other platform: unchanged, just waits for
 	// ctx.Done() (see tray_windows.go / tray_other.go).
@@ -679,7 +721,7 @@ func main() {
 	// trayLangChanged (above) is what keeps the menu in sync after that —
 	// Opciones' language change doesn't wait for a restart.
 	trayRaw, _ := s.KVGet(store.SettingLanguage)
-	runTrayOrWait(ctx, stop, "http://localhost"+cfg.RESTAddr+"/dashboard", i18n.Resolve(trayRaw), trayLangChanged)
+	runTrayOrWait(ctx, stop, "http://localhost:"+restPort+"/dashboard", i18n.Resolve(trayRaw), trayLangChanged)
 	log.Println("piumy-gateway shutting down")
 
 	// Orden de apagado: dejar de aceptar tráfico nuevo -> drenar el

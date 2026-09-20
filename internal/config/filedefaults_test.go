@@ -244,6 +244,54 @@ func TestApplyFileDefaultsSecondRunDoesNotReMigrate(t *testing.T) {
 	}
 }
 
+// TestApplyFileDefaultsAccountSkipsPathVarsButKeepsKeys is S1's own case
+// (ct-2026-09-20-1100): with PIUMY_ACCOUNT set, the shared
+// piumy-config.json's data-path entries must NOT apply (a named account
+// owns its own paths — applying the default install's would silently share
+// its whatsmeow.db) while the keys (needed for any agent to reach the new
+// instance at all) still do.
+func TestApplyFileDefaultsAccountSkipsPathVarsButKeepsKeys(t *testing.T) {
+	clearPiumyEnv(t)
+	t.Setenv("PIUMY_ACCOUNT", "trabajo")
+	dir := t.TempDir()
+	writeJSONFile(t, filepath.Join(dir, configFileName), map[string]string{
+		"PIUMY_DB_PATH":  `C:\Piumy\secrets\piumy.db`,
+		"PIUMY_MCP_KEY":  "aaaa1111",
+		"PIUMY_REST_KEY": "bbbb2222",
+	})
+
+	if err := ApplyFileDefaultsIn(dir); err != nil {
+		t.Fatal(err)
+	}
+	if got := os.Getenv("PIUMY_DB_PATH"); got != "" {
+		t.Errorf("PIUMY_DB_PATH = %q, want empty — a named account must not inherit the default install's path", got)
+	}
+	if got := os.Getenv("PIUMY_MCP_KEY"); got != "aaaa1111" {
+		t.Errorf("PIUMY_MCP_KEY = %q, want aaaa1111 — keys still apply with PIUMY_ACCOUNT set", got)
+	}
+	if got := os.Getenv("PIUMY_REST_KEY"); got != "bbbb2222" {
+		t.Errorf("PIUMY_REST_KEY = %q, want bbbb2222 — keys still apply with PIUMY_ACCOUNT set", got)
+	}
+}
+
+// TestApplyFileDefaultsNoAccountStillAppliesPathVars is the same file's
+// no-PIUMY_ACCOUNT case, unchanged — the default install itself must keep
+// getting its own paths from the file exactly like before S1.
+func TestApplyFileDefaultsNoAccountStillAppliesPathVars(t *testing.T) {
+	clearPiumyEnv(t)
+	dir := t.TempDir()
+	writeJSONFile(t, filepath.Join(dir, configFileName), map[string]string{
+		"PIUMY_DB_PATH": `C:\Piumy\secrets\piumy.db`,
+	})
+
+	if err := ApplyFileDefaultsIn(dir); err != nil {
+		t.Fatal(err)
+	}
+	if got := os.Getenv("PIUMY_DB_PATH"); got != `C:\Piumy\secrets\piumy.db` {
+		t.Errorf(`PIUMY_DB_PATH = %q, want C:\Piumy\secrets\piumy.db — no PIUMY_ACCOUNT set, nothing changes`, got)
+	}
+}
+
 func writeJSONFile(t *testing.T, path string, vals map[string]string) {
 	t.Helper()
 	data, err := json.Marshal(vals)

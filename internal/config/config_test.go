@@ -87,6 +87,44 @@ func TestF5AddrEnvOverrides(t *testing.T) {
 	}
 }
 
+// TestLoadAccountSetDefaultsPortsToZero is S1's own case
+// (ct-2026-09-20-1100): with PIUMY_ACCOUNT set and no explicit
+// PIUMY_MCP_ADDR/PIUMY_REST_ADDR, the port default must be ":0" (OS picks
+// a free one) instead of the fixed :8091/:8092 — a second account's
+// instance would otherwise fail to bind against the first's.
+func TestLoadAccountSetDefaultsPortsToZero(t *testing.T) {
+	t.Setenv("PIUMY_DATA_DIR", t.TempDir())
+	t.Setenv("PIUMY_ACCOUNT", "trabajo")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.MCPAddr != ":0" || cfg.RESTAddr != ":0" {
+		t.Errorf("MCPAddr/RESTAddr = %q/%q, want :0/:0 with PIUMY_ACCOUNT set", cfg.MCPAddr, cfg.RESTAddr)
+	}
+}
+
+// TestLoadAccountSetExplicitPortEnvStillWins: an operator who pins a port
+// by hand must keep that pin even with PIUMY_ACCOUNT set — the ":0" default
+// only fills in what nobody asked for explicitly.
+func TestLoadAccountSetExplicitPortEnvStillWins(t *testing.T) {
+	t.Setenv("PIUMY_DATA_DIR", t.TempDir())
+	t.Setenv("PIUMY_ACCOUNT", "trabajo")
+	t.Setenv("PIUMY_MCP_ADDR", ":9091")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.MCPAddr != ":9091" {
+		t.Errorf("MCPAddr = %q, want :9091 (explicit env must win over the account default)", cfg.MCPAddr)
+	}
+	if cfg.RESTAddr != ":0" {
+		t.Errorf("RESTAddr = %q, want :0 (untouched var still gets the account default)", cfg.RESTAddr)
+	}
+}
+
 // TestDispatchDelayEnv covers env override and the anti-ban invariant: a
 // non-positive value must never be honored (it would mean instant sends).
 func TestDispatchDelayEnv(t *testing.T) {

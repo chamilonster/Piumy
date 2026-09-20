@@ -107,16 +107,26 @@ solo los campos que sus propios paquetes necesitan.
   corrida de prueba de T153 que dejó `agent-connect.json`/`status.json`/
   `logs/` sueltos en la raíz — no fue un olvido del `cd`, era el default).
   - **`DataDir() (string, error)`** (`datadir.go`) — la única función que
-    resuelve la raíz. `PIUMY_DATA_DIR` gana si está seteada (un solo
-    interruptor para una instancia de prueba, reemplaza el truco viejo de
-    setear cinco variables sueltas — T164/T165). Si no, el directorio de
-    datos estándar del SO, cross-platform desde el arranque (T113: Mac/
+    resuelve la raíz. `PIUMY_DATA_DIR` gana si está seteada, SIEMPRE
+    verbatim (un solo interruptor para una instancia de prueba, reemplaza el
+    truco viejo de setear cinco variables sueltas — T164/T165) — ni siquiera
+    `PIUMY_ACCOUNT` le agrega nada encima. Si no, el directorio de datos
+    estándar del SO, cross-platform desde el arranque (T113: Mac/
     Linux/Raspberry, no solo Windows) — `%LOCALAPPDATA%\Piumy` en Windows,
     `~/Library/Application Support/Piumy` en Mac, `~/.local/share/piumy` en
-    Linux. Core puro testeable, `dataDirFor(goos, localAppData, home)` —
-    recibe todo por parámetro en vez de leer `runtime.GOOS`/el entorno en
-    vivo, así las tres ramas (incluidas las dos que esta máquina no corre)
-    se testean sin fingir el SO.
+    Linux. Core puro testeable, `dataDirFor(goos, localAppData, home,
+    account)` — recibe todo por parámetro en vez de leer `runtime.GOOS`/el
+    entorno en vivo, así las cinco ramas (incluidas las dos de SO que esta
+    máquina no corre) se testean sin fingir el SO.
+  - **`PIUMY_ACCOUNT` — multi-cuenta S1 (`ct-2026-09-20-1100`).** Con esta
+    variable seteada, `dataDirFor` cuelga un segmento más debajo de la raíz
+    del SO: `<raíz>/accounts/<slug>` — dos cuentas en la misma máquina
+    terminan en dos árboles de datos completamente separados, cada uno con
+    su propio `whatsmeow.db`. `accountSlug(account)` valida el nombre —
+    vacío (tras `TrimSpace`), `..`, cualquier separador (`/`, `\`) o `:` es
+    un error de arranque explícito, nunca un colapso silencioso fuera de
+    `accounts/`. Sin `PIUMY_ACCOUNT`, cero cambio de comportamiento — mismo
+    directorio de siempre. Ver `docs/S1-DIAGRAMA-MULTICUENTA-AISLAMIENTO.md`.
   - **`envPath(k, secretsDir, def string) string`** (`config.go`) — el
     reemplazo de `env()` para toda ruta de archivo de datos: la variable de
     entorno, VERBATIM si está puesta (nunca se le une nada — así la
@@ -161,6 +171,20 @@ solo los campos que sus propios paquetes necesitan.
     **nunca confundir con `agent-connect.json`** (`internal/agentconnect`,
     SALIDA: el gateway lo escribe para que un agente lo lea). Direcciones
     opuestas, archivos distintos, adrede.
+  - **`PIUMY_ACCOUNT` — multi-cuenta S1 (`ct-2026-09-20-1100`):** con la
+    variable seteada, `accountOwnedPathVars` (las 6 entradas de
+    `knownBatVars` que son ruta de datos — `PIUMY_DB_PATH`/`WA_DB_PATH`/
+    `ROUTER_PATH`/`STATUS_PATH`/`MEDIA_DIR`/`BACKUP_DIR`) se SALTAN al
+    aplicar `piumy-config.json` — una cuenta con nombre es dueña de sus
+    propias rutas bajo `DataDir()/accounts/<slug>`, nunca las de la
+    instalación default que el archivo describe. El resto (claves
+    `PIUMY_MCP_KEY`/`PIUMY_REST_KEY` incluidas, y `PIUMY_REST_ADDR` si
+    estuviera) sigue aplicándose igual que siempre — sin esto, una cuenta
+    nueva nace inservible para cualquier agente (`RequireBearerToken` es
+    fail-closed) y no hay instalador que genere claves propias por cuenta
+    todavía (`ponytail:` marcado en el código — claves propias cuando exista
+    esa UI). Sin `PIUMY_ACCOUNT`, cero cambio: el archivo se aplica entero,
+    exactamente como antes de S1.
   - `migrateFromBat(batPath)` porta a Go el MISMO parser tolerante que
     `piumy.iss` tiene para el `.bat` (T21/T22: `hasBOM`/`parseSetLine` —
     mayús/minús, comillas sin despojar del valor, última coincidencia
@@ -10123,14 +10147,19 @@ es un paso aparte, conjunto con el boss (no en `main.go`).
   cuelgan de `DataDir()` desde acá, ver la sección `config` arriba) →
   `gwlog.Setup` → **`config.WarnLegacyData`** (T169, misma sección —
   logueado recién acá, DESPUÉS de `gwlog.Setup`, para que sobreviva al
-  binario `-H=windowsgui` en vez de evaporarse) → **`acquireSingleInstance`**
-  (T59, ct-2026-08-10-2116 — ver el bullet propio abajo; si devuelve
-  `false`, `main` corta acá con un `return`, nada de lo que sigue se
-  construye) → `store.Open` → `router.NewManager`
+  binario `-H=windowsgui` en vez de evaporarse) → **`config.DataDir()` de
+  nuevo + `acquireSingleInstance(dataDir)`** (T59, ct-2026-08-10-2116, S1
+  ct-2026-09-20-1100 — ver el bullet propio abajo; si devuelve `false`,
+  `main` corta acá con un `return`, nada de lo que sigue se construye) →
+  `store.Open` → `router.NewManager`
   → `governor.NewLimiter+SetDailyMax` → `state.NewManager` →
   **`restoreKillSwitch`** (T19, ct-2026-08-05-1249 — ver el bullet propio
-  abajo) → `agentconnect.Write` (T1 ct-2026-08-05-015542: escribe `agent-connect.json`
-  junto a `status.json` con mcp/rest, no fatal si falla) → `eventbus.New` →
+  abajo) → **`net.Listen("tcp", cfg.MCPAddr/RESTAddr)` × 2** (S1,
+  ct-2026-09-20-1100 — bindea YA, antes de que nada más lo necesite; ver el
+  bullet "Config nueva" abajo para por qué) → `agentconnect.Write` (T1
+  ct-2026-08-05-015542: escribe `agent-connect.json` junto a `status.json`
+  con mcp/rest, no fatal si falla — usa la dirección REAL de los listeners
+  recién bindeados, no `cfg.MCPAddr/RESTAddr`) → `eventbus.New` →
   `whatsmeow.New` → `corepipeline.New+SetBus` →
   `corepipeline.NewController` → `mcpserver.NewGate` →
   `capipush.New` → `mcpguard.New` → `mcpserver.New` → `sessionbackup.New`.
@@ -10153,6 +10182,20 @@ es un paso aparte, conjunto con el boss (no en `main.go`).
   `RESTAddr`/`PIUMY_REST_ADDR` (`:8092`), `RESTKey`/`PIUMY_REST_KEY`
   (`""` = abierto dev/LAN), `PolicyPath`/`PIUMY_POLICY_PATH` (`""` → cada
   paquete cae a su propio default embebido).
+  - **S1 (ct-2026-09-20-1100) — default dinámico por `PIUMY_ACCOUNT`:** con
+    la variable seteada Y sin `PIUMY_MCP_ADDR`/`PIUMY_REST_ADDR` puesta a
+    mano, el default pasa de `:8091`/`:8092` a `:0` (el SO elige un puerto
+    libre) — la segunda cuenta ya no muere al no poder bindear el puerto
+    fijo de la primera. Un env var explícito sigue ganando siempre, cuenta
+    puesta o no. `main.go` bindea con `net.Listen` + `srv.Serve(ln)` en vez
+    de `http.Server.Addr` + `ListenAndServe` (mecánico: con `:0` de entrada
+    los 3 consumidores de "el puerto real" — `agent-connect.json`, el log de
+    arranque, `dashboardURL` del tray — necesitan `ln.Addr()`, no el string
+    de config original, que seguiría diciendo `:0`). `dashboardURL` arma la
+    URL con el PUERTO solo (`net.SplitHostPort(restAddr)`), nunca pegando
+    `ln.Addr().String()` entero detrás de `"http://localhost"` — esa
+    dirección real viene con host (`[::]:PUERTO`/`0.0.0.0:PUERTO`), pegarla
+    tal cual arma una URL rota.
 - **`todayStartLocal(now) int64`** (H1 hardening, ct-2026-07-10-0540) —
   medianoche LOCAL de hoy. Tras `gov.SetDailyMax`, `main` siembra
   `gov.SeedDailyCount(s.CountOutboundSince(todayStartLocal(time.Now())))`:
@@ -10264,7 +10307,11 @@ es un paso aparte, conjunto con el boss (no en `main.go`).
     corrió sin error) antes de reportar.
   - `tray_other.go` (`//go:build !windows`): no-op, `<-ctx.Done()` — el
     build headless/Linux no cambia en nada.
-  - `dashboardURL` = `"http://localhost" + cfg.RESTAddr + "/dashboard"`.
+  - `dashboardURL` = `"http://localhost:" + restPort + "/dashboard"`, con
+    `restPort` extraído del listener REAL vía `net.SplitHostPort` (S1,
+    ct-2026-09-20-1100 — ver "Config nueva" arriba); antes de S1 era
+    `"http://localhost" + cfg.RESTAddr`, que solo andaba porque `cfg.RESTAddr`
+    siempre era un `:puerto` pelado.
 - **`openAppWindow(url)`/`browserAppPath(exeName)`** (T62,
   ct-2026-08-11-1527, `tray_windows.go`) — reescrito de raíz. Reporte del
   dueño, verbatim: "no me gusta que al querer verlo una ventana negra se
@@ -10338,21 +10385,36 @@ es un paso aparte, conjunto con el boss (no en `main.go`).
     aborta (exit code 1), binario intacto.
   - `appmutex_other.go` (`//go:build !windows`): no-op — el chequeo es
     Windows-only (el instalador también lo es).
-- **`acquireSingleInstance() bool`** (T59, ct-2026-08-10-2116) — el mutex
-  REAL de instancia única, deliberadamente SEPARADO de `acquireAppMutex`
-  arriba: aquel es best-effort para que el instalador detecte a Piumy
-  corriendo (nunca frena nada); este tiene que ser autoritativo, porque es
-  lo único que evita que dos procesos vivos peleen por la misma sesión de
-  WhatsApp (`whatsmeow.db`) — pasó de verdad, medido con PIDs, y una vez
-  terminó con WhatsApp desconectado. Mezclar los dos mutex en uno solo
-  hubiera acoplado dos concerns con requisitos opuestos (uno nunca debe
-  frenar, el otro SIEMPRE debe frenar al duplicado).
+- **`acquireSingleInstance(dataDir string) bool`** (T59, ct-2026-08-10-2116;
+  parámetro `dataDir` agregado en S1, ct-2026-09-20-1100) — el mutex REAL de
+  instancia única, deliberadamente SEPARADO de `acquireAppMutex` arriba:
+  aquel es best-effort para que el instalador detecte a Piumy corriendo
+  (nunca frena nada); este tiene que ser autoritativo, porque es lo único
+  que evita que dos procesos vivos peleen por la misma sesión de WhatsApp
+  (`whatsmeow.db`) — pasó de verdad, medido con PIDs, y una vez terminó con
+  WhatsApp desconectado. Mezclar los dos mutex en uno solo hubiera acoplado
+  dos concerns con requisitos opuestos (uno nunca debe frenar, el otro
+  SIEMPRE debe frenar al duplicado).
+  - **S1 (ct-2026-09-20-1100) — candado por directorio de datos, no por
+    máquina.** Antes de S1 el nombre del mutex era una constante fija
+    (`"PiumyGatewayRuntimeInstanceMutex"`) — global a la MÁQUINA, así que
+    bloqueaba dos cuentas aunque no compartieran nada. Ahora el nombre es
+    `singleInstanceMutexPrefix + dataDirHash(dataDir)` —
+    `dataDirHash` normaliza (`strings.ToLower(filepath.Clean(dataDir))`,
+    Windows es case-insensitive: dos formas de escribir el MISMO directorio
+    tienen que chocar igual) y hashea con SHA-256 (un nombre de mutex de
+    Windows no admite `\` y tiene tope de largo — la ruta cruda no entra
+    directo). `dataDir` es el que devuelve `config.DataDir()`, no el nombre
+    de cuenta — dos cuentas resuelven a dos directorios y arrancan las dos;
+    dos procesos apuntando al MISMO directorio (los llamen como los llamen)
+    siguen chocando en el mismo mutex, igual que hoy. Tests puros de la
+    normalización: `singleinstance_windows_test.go`
+    (`TestDataDirHash*`).
   - `singleinstance_windows.go` (`//go:build windows`): mismo `kernel32`/
     `createMutexW` que `appmutex_windows.go` ya resuelve (reusado, no
-    re-declarado), pero mutex propio `singleInstanceMutexName =
-    "PiumyGatewayRuntimeInstanceMutex"` con `bInitialOwner=1`. Devuelve
-    `false` solo si `GetLastError() == ERROR_ALREADY_EXISTS` tras un handle
-    válido — cualquier otra falla (no se pudo armar el nombre, `CreateMutexW`
+    re-declarado), `bInitialOwner=1`. Devuelve `false` solo si
+    `GetLastError() == ERROR_ALREADY_EXISTS` tras un handle válido —
+    cualquier otra falla (no se pudo armar el nombre, `CreateMutexW`
     devolvió handle 0) hace fail-OPEN (`true`, "somos la única instancia"):
     negarse a arrancar por un problema ajeno al mutex sería el mismo "peor
     que el problema" que el contrato pide evitar, solo que por otra puerta.
@@ -10366,13 +10428,16 @@ es un paso aparte, conjunto con el boss (no en `main.go`).
     reciclado por el SO podría hacer fallar mal). Exactamente el mecanismo
     que hace posible el criterio más duro del contrato sin lógica de
     staleness alguna.
-  - `singleinstance_other.go` (`//go:build !windows`): no-op, `true` fijo —
-    misma razón que `appmutex_other.go` (bandeja/instalador Windows-only).
-  - `main.go`: el chequeo va DESPUÉS de `gwlog.Setup` (a propósito — el
-    motivo de salida tiene que quedar en `logs/piumy.log`, no evaporarse
-    como el resto de `log.Printf` en el binario `-H=windowsgui`) y ANTES de
-    `store.Open`/`whatsmeow.New` — si es la segunda instancia, un `return`
-    liso sale sin haber tocado el store ni la sesión de WhatsApp en
+  - `singleinstance_other.go` (`//go:build !windows`): no-op, `true` fijo,
+    `dataDir` sin usar (parámetro solo para matchear la firma) — misma razón
+    que `appmutex_other.go` (bandeja/instalador Windows-only).
+  - `main.go`: llama a `config.DataDir()` una segunda vez (pura, solo lee
+    entorno — más directo que sumar un campo a `Config` para este único
+    consumidor) justo antes del chequeo, que va DESPUÉS de `gwlog.Setup` (a
+    propósito — el motivo de salida tiene que quedar en `logs/piumy.log`, no
+    evaporarse como el resto de `log.Printf` en el binario `-H=windowsgui`)
+    y ANTES de `store.Open`/`whatsmeow.New` — si es la segunda instancia, un
+    `return` liso sale sin haber tocado el store ni la sesión de WhatsApp en
     absoluto (ningún defer pendiente todavía salvo `stop()`, inocuo).
     Verificado matando el proceso de verdad (no razonando sobre el
     código), instalación descartable: lanzar dos veces deja una corriendo

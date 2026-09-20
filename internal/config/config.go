@@ -320,6 +320,17 @@ func Load() (Config, error) {
 	}
 	secretsDir := filepath.Join(dataDir, "secrets")
 
+	// mcpAddrDefault/restAddrDefault: with PIUMY_ACCOUNT set, the fixed
+	// :8091/:8092 default would make a second account's instance fail to
+	// bind against the first's (S1, ct-2026-09-20-1100) — ":0" lets the OS
+	// pick a free port instead. An explicit PIUMY_MCP_ADDR/PIUMY_REST_ADDR
+	// still wins either way (env() below), so a pinned port keeps working
+	// exactly like today for whoever sets one on purpose.
+	mcpAddrDefault, restAddrDefault := ":8091", ":8092"
+	if os.Getenv("PIUMY_ACCOUNT") != "" {
+		mcpAddrDefault, restAddrDefault = ":0", ":0"
+	}
+
 	cfg := Config{
 		DBPath:            envPath("PIUMY_DB_PATH", secretsDir, "piumy.db"),
 		MCPKey:            os.Getenv("PIUMY_MCP_KEY"),
@@ -395,8 +406,8 @@ func Load() (Config, error) {
 		MeteringMessageCost:   envFloat("PIUMY_METERING_MESSAGE_COST", 5),
 		MeteringDailyQuota:    envFloat("PIUMY_METERING_DAILY_QUOTA", 0),
 
-		MCPAddr:    env("PIUMY_MCP_ADDR", ":8091"),
-		RESTAddr:   env("PIUMY_REST_ADDR", ":8092"),
+		MCPAddr:    env("PIUMY_MCP_ADDR", mcpAddrDefault),
+		RESTAddr:   env("PIUMY_REST_ADDR", restAddrDefault),
 		RESTKey:    os.Getenv("PIUMY_REST_KEY"),
 		PolicyPath: os.Getenv("PIUMY_POLICY_PATH"),
 
