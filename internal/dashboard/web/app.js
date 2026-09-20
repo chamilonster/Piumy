@@ -384,10 +384,35 @@
     return wrap;
   }
 
+  // applyAccountIdentity (S3, ct-2026-09-20-1202) — same safeguard S2 built
+  // for the tray, moved to the browser: two dashboards in two tabs are
+  // today as indistinguishable as the two tray icons were before S2.
+  // account/accountColor come straight from GET /api/status, which reports
+  // EXACTLY what config.ColorForAccount (Go) computed — this function only
+  // paints with it, never derives its own color (same split as
+  // trayicon_recolor.go on the Go side). No account: the brand chip and
+  // the tab title stay EXACTLY as before S3, byte for byte — same
+  // condition S1/S2 already put on the no-account case.
+  function applyAccountIdentity(account, accountColor) {
+    var el = document.getElementById("brandaccount");
+    if (!account) {
+      el.classList.add("hidden");
+      el.textContent = "";
+      el.style.color = "";
+      document.title = "Piumy Gateway";
+      return;
+    }
+    el.textContent = t("account.label", { account: account });
+    el.style.color = accountColor || "";
+    el.classList.remove("hidden");
+    document.title = "Piumy Gateway — " + account;
+  }
+
   function loadStatus() {
     return api("/api/status").then(function (s) {
       state.lastStatus = s;
       hideLogin();
+      applyAccountIdentity(s.account, s.account_color);
       var heroAvatarWrap = document.getElementById("heroavatar");
       if (s.connected) {
         document.getElementById("name").textContent = s.name || t("data.unnamed");

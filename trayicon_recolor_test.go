@@ -2,11 +2,14 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
 	"os"
 	"testing"
+
+	"piumy-gateway/internal/config"
 )
 
 // makeTestICO builds a minimal 1-entry ICO container around img — same
@@ -40,62 +43,59 @@ func decodeICOFirstImage(t *testing.T, icoData []byte) image.Image {
 	return img
 }
 
-// TestRecolorTrayIconEmptyAccountReturnsUnchanged is verification point 1
-// of the contract: no PIUMY_ACCOUNT, byte-identical icon — the default
-// install's 99% case never even enters the parsing path.
-func TestRecolorTrayIconEmptyAccountReturnsUnchanged(t *testing.T) {
+// TestRecolorTrayIconZeroDeltaReturnsUnchanged is verification point 1 of
+// S2's contract, still true after S3 moved color selection out of this
+// package: no account -> config.ColorForAccount("").HueDelta == 0 -> the
+// default install's 99% case never even enters the parsing path.
+func TestRecolorTrayIconZeroDeltaReturnsUnchanged(t *testing.T) {
 	src := []byte{1, 2, 3, 4, 5} // deliberately not a valid ICO — must never be parsed
-	got, err := RecolorTrayIcon(src, "")
+	got, err := RecolorTrayIcon(src, 0)
 	if err != nil {
 		t.Fatalf("want no error, got %v", err)
 	}
 	if !bytes.Equal(got, src) {
-		t.Errorf("RecolorTrayIcon(_, \"\") = %v, want the input unchanged", got)
+		t.Errorf("RecolorTrayIcon(_, 0) = %v, want the input unchanged", got)
 	}
 }
 
-// TestRecolorTrayIconSameAccountDeterministic is verification point 3: the
-// same account, run twice, must produce the identical color every time.
-func TestRecolorTrayIconSameAccountDeterministic(t *testing.T) {
+// TestRecolorTrayIconSameDeltaDeterministic is verification point 3: the
+// same color, applied twice, must produce identical bytes every time.
+func TestRecolorTrayIconSameDeltaDeterministic(t *testing.T) {
 	img := image.NewNRGBA(image.Rect(0, 0, 2, 2))
 	img.Set(0, 0, color.NRGBA{R: 0, G: 200, B: 0, A: 255})
 	ico := makeTestICO(t, img)
 
-	a, err := RecolorTrayIcon(ico, "trabajo")
+	a, err := RecolorTrayIcon(ico, 270)
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := RecolorTrayIcon(ico, "trabajo")
+	b, err := RecolorTrayIcon(ico, 270)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !bytes.Equal(a, b) {
-		t.Error("same account recolored twice produced different bytes, want identical")
+		t.Error("same delta applied twice produced different bytes, want identical")
 	}
 }
 
-// TestRecolorTrayIconDifferentAccountsDifferentHues: two account names
-// picked to land in different palette slots must produce visibly different
-// output — the whole point of S2 (two live instances must be tellable
-// apart).
-func TestRecolorTrayIconDifferentAccountsDifferentHues(t *testing.T) {
-	if hueIndex("trabajo") == hueIndex("personal") {
-		t.Fatal("test fixture invalid: pick two account names that land in different palette slots")
-	}
+// TestRecolorTrayIconDifferentDeltasDifferentOutput: two different deltas
+// must produce visibly different output — the whole point of S2/S3 (two
+// live instances must be tellable apart).
+func TestRecolorTrayIconDifferentDeltasDifferentOutput(t *testing.T) {
 	img := image.NewNRGBA(image.Rect(0, 0, 2, 2))
 	img.Set(0, 0, color.NRGBA{R: 0, G: 200, B: 0, A: 255})
 	ico := makeTestICO(t, img)
 
-	a, err := RecolorTrayIcon(ico, "trabajo")
+	a, err := RecolorTrayIcon(ico, 270)
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := RecolorTrayIcon(ico, "personal")
+	b, err := RecolorTrayIcon(ico, 180)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if bytes.Equal(a, b) {
-		t.Error("two accounts in different palette slots produced identical bytes, want different colors")
+		t.Error("two different deltas produced identical bytes, want different colors")
 	}
 }
 
@@ -111,7 +111,7 @@ func TestRecolorTrayIconPreservesSaturationValueAlpha(t *testing.T) {
 	img.Set(1, 1, color.NRGBA{R: 128, G: 128, B: 128, A: 255}) // gray, saturation 0
 	ico := makeTestICO(t, img)
 
-	got, err := RecolorTrayIcon(ico, "trabajo")
+	got, err := RecolorTrayIcon(ico, 270)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,7 +151,7 @@ func TestRecolorTrayIconPreservesSaturationValueAlpha(t *testing.T) {
 // never block startup, never ship a half-built icon.
 func TestRecolorTrayIconMalformedContainerFallsBack(t *testing.T) {
 	garbage := []byte("not an ico at all, just some bytes")
-	got, err := RecolorTrayIcon(garbage, "trabajo")
+	got, err := RecolorTrayIcon(garbage, 270)
 	if err == nil {
 		t.Fatal("want an error for a malformed ICO container, got nil")
 	}
@@ -166,7 +166,7 @@ func TestRecolorTrayIconMalformedPNGPayloadFallsBack(t *testing.T) {
 	entry := icoEntry{width: 1, height: 1, planes: 1, bitCount: 32}
 	ico := buildICO([]icoEntry{entry}, [][]byte{[]byte("not a png")})
 
-	got, err := RecolorTrayIcon(ico, "trabajo")
+	got, err := RecolorTrayIcon(ico, 270)
 	if err == nil {
 		t.Fatal("want an error for a non-PNG payload, got nil")
 	}
@@ -189,7 +189,7 @@ func TestRecolorTrayIconRealAssetRoundTrips(t *testing.T) {
 		t.Fatalf("parseICO(real asset): %v", err)
 	}
 
-	got, err := RecolorTrayIcon(data, "trabajo")
+	got, err := RecolorTrayIcon(data, 270)
 	if err != nil {
 		t.Fatalf("RecolorTrayIcon(real asset): %v", err)
 	}
@@ -204,5 +204,29 @@ func TestRecolorTrayIconRealAssetRoundTrips(t *testing.T) {
 		if e.width != entriesBefore[i].width || e.height != entriesBefore[i].height {
 			t.Errorf("entry %d size = %dx%d, want %dx%d", i, e.width, e.height, entriesBefore[i].width, entriesBefore[i].height)
 		}
+	}
+}
+
+// TestRecolorTrayIconMatchesConfigHex is S3's own central invariant
+// (ct-2026-09-20-1202): the tray and the dashboard must NEVER show two
+// different colors for the same account. Builds a 1×1 icon whose only
+// pixel IS the exact brand reference color config.ColorForAccount rotates,
+// recolors it with that same account's HueDelta, and asserts the result is
+// EXACTLY config.ColorForAccount's own Hex — proof the two surfaces are
+// structurally reading the same color, not just "probably the same".
+func TestRecolorTrayIconMatchesConfigHex(t *testing.T) {
+	want := config.ColorForAccount("trabajo")
+	img := image.NewNRGBA(image.Rect(0, 0, 1, 1))
+	img.Set(0, 0, color.NRGBA{R: 86, G: 245, B: 159, A: 255}) // the exact brand reference pixel
+	ico := makeTestICO(t, img)
+
+	got, err := RecolorTrayIcon(ico, want.HueDelta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := color.NRGBAModel.Convert(decodeICOFirstImage(t, got).At(0, 0)).(color.NRGBA)
+	gotHex := fmt.Sprintf("#%02x%02x%02x", out.R, out.G, out.B)
+	if gotHex != want.Hex {
+		t.Errorf("RecolorTrayIcon of the brand pixel = %s, want config.ColorForAccount(\"trabajo\").Hex = %s", gotHex, want.Hex)
 	}
 }

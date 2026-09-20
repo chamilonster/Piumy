@@ -171,6 +171,14 @@ func looksLikeProse(s string) bool {
 // lateral del regex.
 var allowedNonProseLiterals = map[string]string{
 	"http://192.168.1.10:8787": "ejemplo de URL en un placeholder — una dirección IP:puerto no cambia con el idioma",
+	// "Piumy Gateway"/"Piumy Gateway — " (S3, ct-2026-09-20-1202,
+	// applyAccountIdentity → document.title): el nombre del producto NUNCA
+	// se traduce (T153 etapa 3c, misma regla que tray_windows.go's
+	// SetTitle/SetTooltip en el lado Go) — el segundo literal es el prefijo
+	// suelto que queda al concatenar "+ account" (un dato, tampoco
+	// traducible), no una frase a medio armar.
+	"Piumy Gateway":    "nombre del producto — nunca se traduce, misma regla que el lado Go (tray_windows.go)",
+	"Piumy Gateway — ": "prefijo del título de pestaña con cuenta — el nombre del producto no se traduce, el nombre de cuenta que sigue es un dato",
 }
 
 // TestAllowedNonProseLiteralsHaveReasons: guarda contra una excepción

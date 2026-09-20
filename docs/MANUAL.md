@@ -130,10 +130,45 @@ solo los campos que sus propios paquetes necesitan.
   - **`Config.Account string`** (S2, `ct-2026-09-20-1134`) — `PIUMY_ACCOUNT`
     ya trimeado, LA fuente para cualquier consumidor que no sea `DataDir`/
     el default de puertos (ambos siguen leyendo el env var directo, cada
-    uno por su propia razón). Hoy el único consumidor es la bandeja
-    (`main.go` → `runTrayOrWait(..., cfg.Account)`) — cablear desde acá en
-    vez de un tercer `os.Getenv` es la regla del proyecto. Ver
+    uno por su propia razón). Consumido por la bandeja
+    (`main.go` → `runTrayOrWait(..., cfg.Account)`) y por `restapi.Deps.Account`
+    (S3, ver abajo) — cablear desde acá en vez de un tercer/cuarto
+    `os.Getenv` es la regla del proyecto. Ver
     `docs/S2-DIAGRAMA-DISTINTIVO-VISUAL.md`.
+  - **`accountcolor.go` — `AccountColor`/`ColorForAccount`/`RGBToHSV`/
+    `HSVToRGB` (S3, `ct-2026-09-20-1202`).** La pieza de diseño central del
+    peldaño: **única fuente de color**, movida acá desde `main` (que S2
+    había dejado en `trayicon_recolor.go`) porque `internal/restapi` no
+    puede importar `main` — si el tablero calculara su propio color, tarde
+    o temprano mostraría uno distinto al de la bandeja para la misma
+    cuenta. Reparto explícito: `internal/config` decide **qué** color
+    (única fuente); `main` (`trayicon_recolor.go`) sabe **cómo** pintar un
+    ICO con él (recibe el delta, ya no lo elige); `internal/restapi` solo
+    lo **reporta** (`GET /api/status`).
+    - `ColorForAccount(account string) AccountColor` — `{HueDelta,
+      Hex}`. `account == ""` → zero value (`HueDelta 0`, `Hex ""`), el
+      sentinel que `RecolorTrayIcon` ya usaba en S2 para "no tocar el
+      ícono" — 0 nunca es un delta real de la paleta, por diseño, así que
+      no puede confundirse con una cuenta legítima.
+    - `brandR/G/B = 86, 245, 159` — el verde fósforo del ícono, MEDIDO
+      (no adivinado): el píxel opaco más frecuente del PNG de 32×32 de
+      `assets/tray.ico` (histograma sobre los píxeles con alfa≥250).
+      Rotar ESTE valor por el delta de una cuenta da el mismo hex que un
+      píxel real del ícono rotado por el mismo delta — es lo que hace que
+      "el color del tablero es el MISMO que el de la bandeja" sea cierto
+      por construcción, no por casualidad.
+    - `accountHueDeltas`/`accountHueIndex` — la paleta fija de 7 valores y
+      el hash FNV-32a, MOVIDOS verbatim desde `trayicon_recolor.go` (S2) —
+      mismo algoritmo, ninguna reescritura (mudanza, no reescritura, pedido
+      explícito de Citrino). `TestColorForAccountSurvivedTheMove`
+      (`accountcolor_test.go`) fija en duro los hex de "trabajo"/"personal"
+      calculados ANTES de mover el código — un valor distinto ahí es un
+      bug de la mudanza, no una decisión de diseño.
+    - `RGBToHSV`/`HSVToRGB` — EXPORTADAS para que `main`'s `rotateHue`
+      (`trayicon_recolor.go`) reuse la misma matemática en vez de una
+      segunda copia que podría divergir. Sin build tag (aritmética pura),
+      mismo criterio que `trayicon_recolor.go` ya seguía en S2.
+    - Ver `docs/S3-DIAGRAMA-TABLERO-CUENTA.md`.
   - **`envPath(k, secretsDir, def string) string`** (`config.go`) — el
     reemplazo de `env()` para toda ruta de archivo de datos: la variable de
     entorno, VERBATIM si está puesta (nunca se le une nada — así la
@@ -8425,6 +8460,16 @@ del dueño desde la LAN, sin agente de por medio. Grupo/perfil NO están acá
         aparte — `Deps.Backup` es el campo nuevo en `restapi.Deps`, no
         `Config` (importar todo `Config` a `restapi` por un solo bool
         hubiera sido más acoplamiento del necesario).
+      - **`account` (string) / `account_color` (string, hex) — S3
+        (ct-2026-09-20-1202).** `account` = `Deps.Account` (= `cfg.Account`)
+        verbatim; `account_color` = `config.ColorForAccount(Deps.Account).Hex`
+        — la MISMA función que `tray_windows.go` le pasa a
+        `RecolorTrayIcon` para pintar el ícono (`internal/config`'s propio
+        doc, sección `config` de este manual). `restapi` nunca deriva su
+        propio color — solo lo reporta; si algún día calculara el suyo,
+        bandeja y tablero podrían mostrar colores distintos para la misma
+        cuenta, justo lo que este diseño existe para impedir. Ambos vacíos
+        sin cuenta — el tablero no cambia nada (misma regla que S1/S2).
   - `GET /api/chats` → `[]chatOut` (`jid, name, level, mode, is_boss,
     confirmation_mode, config_level, status, last_ts, rules, memory,
     context`) — shape propio del dashboard, no `store.Chat` verbatim (no
@@ -8455,6 +8500,38 @@ del dueño desde la LAN, sin agente de por medio. Grupo/perfil NO están acá
   - `GET /api/qr/image` → el QR actual como PNG (`rsc.io/qr` —
     YA era dependencia indirecta vía `qrterminal`, esto solo la promueve a
     directa, cero dependencia nueva). 404 si no hay QR pendiente.
+  - **`applyAccountIdentity(account, accountColor)` (`web/app.js`, S3,
+    ct-2026-09-20-1202)** — el mismo argumento de seguridad de S2 (la
+    bandeja), en el navegador: dos tableros en dos pestañas eran, antes de
+    esto, tan indistinguibles como los dos íconos antes de S2. Llamada
+    desde `loadStatus()` con `s.account`/`s.account_color` (`GET
+    /api/status`, bullet propio en `read.go` arriba) — nunca deriva su
+    propio color, solo pinta con el que Go ya calculó.
+    - **Sin cuenta:** `#brandaccount` (`index.html`, dentro de `.brand`,
+      al lado de `.brand-name`) se oculta (`classList.add("hidden")`,
+      mismo utility class que `factorypwalert`/`noterminalalert`) y
+      `document.title` vuelve a `"Piumy Gateway"` — el tablero queda
+      pixel por pixel como antes de S3, misma condición que S1/S2 ya
+      pusieron.
+    - **Con cuenta:** `#brandaccount.textContent = t("account.label",
+      {account})` (`"Cuenta: <nombre>"` — la etiqueta se traduce, el
+      nombre no, mismo patrón que `tray_windows.go`), `el.style.color =
+      accountColor` (el hex de `GET /api/status`, el MISMO que pintó la
+      bandeja), y `document.title = "Piumy Gateway — " + account` — el
+      título es la última línea de defensa cuando solo se ve el ícono de
+      la pestaña con muchas abiertas.
+    - **`.brand-account`** (`style.css`) usa `border: 1px solid
+      currentColor` a propósito — un solo `style.color` puesto por JS
+      pinta texto Y borde juntos, sin duplicar la propiedad.
+    - **`"Piumy Gateway"`/`"Piumy Gateway — "` en `allowedNonProseLiterals`**
+      (`internal/i18n/prose_sink_test.go`) — `TestNoUntranslatedProseInKnownSinks`
+      escanea toda asignación a `.textContent`/`.title`/etc. en busca de
+      prosa sin traducir; estos dos literales son el nombre del producto
+      (nunca se traduce, T153 etapa 3c) y su prefijo suelto al concatenar
+      `+ account`, así que están en la lista de excepción con motivo
+      escrito, no filtrados por accidente.
+    - Verificado con captura real (bandeja Y tablero a la vista a la vez,
+      pedido explícito de Citrino) — ver `docs/S3-DIAGRAMA-TABLERO-CUENTA.md`.
   - **`web/app.js` — mecanismo de i18n (T153, ct-2026-09-08-1656):**
     `loadI18n()` pide `GET /api/i18n` y guarda
     `state.i18n = {lang, language, texts}` (`language` es el override crudo,
@@ -10259,10 +10336,13 @@ es un paso aparte, conjunto con el boss (no en `main.go`).
       cuenta, exactamente `"Piumy Gateway"` sin ella — cero cambio en el
       caso sin cuenta (99% de los casos).
     - **Ítem de menú** deshabilitado, al lado del de versión —
-      `i18n.T(lang, "server.tray_account", "account", account)`
+      `i18n.T(lang, "account.label", "account", account)`
       (`"Cuenta: {account}"` es / `"Account: {account}"` en) — SOLO existe
       cuando hay cuenta. Se re-renderiza en el `case newLang :=
-      <-langChanged:` igual que `mOpen`/`mQuit`/`mVersion`.
+      <-langChanged:` igual que `mOpen`/`mQuit`/`mVersion`. Clave
+      renombrada en S3 (`ct-2026-09-20-1202`, era `server.tray_account`):
+      ya no es solo de la bandeja — `app.js` pide la MISMA clave para el
+      acento de cuenta del tablero, ver el bullet de `dashboard.go` abajo.
     - **Tensión con T37 (abajo), a propósito, no un olvido:** T37 acotó la
       VERSIÓN al ítem de menú porque su trabajo es informar. El nombre de
       cuenta va en título + tooltip + ítem porque su trabajo es impedir un
@@ -10270,9 +10350,12 @@ es un paso aparte, conjunto con el boss (no en `main.go`).
       ANTES del click, así que el tooltip también tiene que decirlo.
       Comentario en el código mismo para que nadie "corrija" esto pensando
       que contradice T37.
-    - **El color — `RecolorTrayIcon(trayIcon, account)`**, ver el bullet
-      propio de `trayicon_recolor.go` más abajo. Cualquier error cae al
-      ícono embebido sin tocar + `log.Printf("tray: recolor icon...")`.
+    - **El color — `RecolorTrayIcon(trayIcon, config.ColorForAccount(account).HueDelta)`**
+      (llamada actualizada en S3 — antes le pasaba `account` directo, ver
+      el bullet de `accountcolor.go` en la sección `config`), ver el
+      bullet propio de `trayicon_recolor.go` más abajo. Cualquier error
+      cae al ícono embebido sin tocar + `log.Printf("tray: recolor
+      icon...")`.
     - Verificado con captura real (instancia aislada, mismo método que T37
       — nunca la instalación viva del dueño): dos cuentas a la vez, en la
       bandeja de Windows, dan dos colores CLARAMENTE distintos entre sí y
@@ -10282,11 +10365,15 @@ es un paso aparte, conjunto con el boss (no en `main.go`).
       cuenta) y el ícono es indistinguible del de una instalación default
       (esperado — ver docs/S2-DIAGRAMA-DISTINTIVO-VISUAL.md).
   - **i18n (T153 etapa 3c, ct-2026-09-16-1854; +1 clave en S2,
-    ct-2026-09-20-1134):** los textos del menú — "Abrir dashboard"/
-    tooltip, "Salir"/tooltip, tooltip del ítem de versión, y desde S2
-    `"Cuenta: {account}"` (ítem de cuenta, solo con `PIUMY_ACCOUNT`) —
-    pasan por `i18n.T(lang, "server.tray_*")`, catálogo en
-    `internal/i18n/catalog.go`. `"Piumy Gateway"` (título/tooltip del
+    ct-2026-09-20-1134, renombrada `server.tray_account` →
+    `account.label` en S3, ct-2026-09-20-1202 — ya no es solo de la
+    bandeja, `app.js` pide la misma clave):** los textos del menú —
+    "Abrir dashboard"/tooltip, "Salir"/tooltip, tooltip del ítem de
+    versión — pasan por `i18n.T(lang, "server.tray_*")`; el ítem de
+    cuenta (`"Cuenta: {account}"`, solo con `PIUMY_ACCOUNT`) pasa por
+    `i18n.T(lang, "account.label", "account", account)`, SIN el prefijo
+    `server.` — catálogo en `internal/i18n/catalog.go`. `"Piumy Gateway"`
+    (título/tooltip del
     ícono, prefijo del ítem de versión) y el nombre de cuenta en sí NUNCA
     se traducen — son el nombre del producto y un dato, no texto de
     interfaz; solo la etiqueta `"Cuenta: "`/`"Account: "` alrededor del
@@ -10357,17 +10444,21 @@ es un paso aparte, conjunto con el boss (no en `main.go`).
     programa que lo hizo.
     Verificado en vivo (`systray.SetIcon` con los bytes reales, proceso
     corrió sin error) antes de reportar.
-  - **`trayicon_recolor.go` (S2, ct-2026-09-20-1134) — SIN build tag**,
-    a propósito: es aritmética de imagen pura, ningún símbolo de Windows,
-    así que su test (`trayicon_recolor_test.go`) corre en cualquier
-    plataforma aunque solo `tray_windows.go` lo llame hoy.
-    - **`RecolorTrayIcon(icoData []byte, account string) ([]byte, error)`**
-      — botón principal. `account == ""` devuelve `icoData` **sin tocar**
-      (mismo slice, ni siquiera una copia) — el 99% de los casos nunca
-      entra al parseo. Cualquier fallo (contenedor corrupto, PNG inválido,
-      encode fallido) devuelve `icoData` original + el error — el llamador
-      loguea y sigue con el ícono normal, un ícono roto nunca frena el
-      arranque.
+  - **`trayicon_recolor.go` (S2, ct-2026-09-20-1134; reducido en S3,
+    ct-2026-09-20-1202) — SIN build tag**, a propósito: es aritmética de
+    imagen pura, ningún símbolo de Windows, así que su test
+    (`trayicon_recolor_test.go`) corre en cualquier plataforma aunque solo
+    `tray_windows.go` lo llame hoy.
+    - **`RecolorTrayIcon(icoData []byte, hueDelta float64) ([]byte, error)`**
+      — botón principal. **S3 cambió la firma**: ya no recibe `account`
+      (ese saber es de `internal/config` ahora) — recibe el `HueDelta` ya
+      calculado. `hueDelta == 0` devuelve `icoData` **sin tocar** (mismo
+      slice, ni siquiera una copia) — el 99% de los casos nunca entra al
+      parseo; 0 nunca es un delta real de la paleta (`config.go`'s propio
+      invariante), así que no puede confundirse con una cuenta legítima.
+      Cualquier fallo (contenedor corrupto, PNG inválido, encode fallido)
+      devuelve `icoData` original + el error — el llamador loguea y sigue
+      con el ícono normal, un ícono roto nunca frena el arranque.
     - **`parseICO`/`buildICO`** — el contenedor clásico ICONDIR (6 bytes) +
       N ICONDIRENTRY (16 bytes c/u) + los payloads PNG, leído/reescrito a
       mano (`encoding/binary`, sin librería — no existe una en stdlib).
@@ -10375,23 +10466,27 @@ es un paso aparte, conjunto con el boss (no en `main.go`).
       de cada entrada verbatim; solo `bytesInRes`/`imageOffset` cambian
       (el PNG re-encodeado rara vez pesa exactamente igual).
     - **`rotateHue(img, deltaDegrees) *image.NRGBA`** — por píxel: RGB→HSV
-      (`rgbToHSV`/`hsvToRGB`, a mano — stdlib no tiene HSV), `H += delta`,
-      **S/V/alfa intactos**. Convierte por `color.NRGBAModel` (alfa NO
-      premultiplicado) antes de la matemática — con alfa premultiplicado
-      el RGB se escala hacia negro cuando el alfa baja, ensuciando el tono
-      de los bordes suavizados del ícono. Por qué rotación y no reemplazo
-      plano: al no tocar S/V, un píxel negro (saturación 0) o transparente
-      (alfa 0) queda intacto SOLO, sin caso especial, y el borde suavizado
-      sigue suavizado.
-    - **`hueDeltas`/`hueIndex(account)`** — paleta fija de 7 deltas, 45°
-      aparte, ninguno en 0 (0 = el verde de marca sin cambio) — nunca
-      `hash % 360`, que podría separar dos cuentas por unos pocos grados
-      (indistinguibles, justo lo que S2 viene a evitar). Índice vía
-      FNV-32a (`hash/fnv`, stdlib, sin semilla — determinista entre
-      procesos, a diferencia del hash de mapas de Go) — la misma cuenta
-      cae siempre en el mismo color.
+      (`config.RGBToHSV`/`config.HSVToRGB` desde S3 — antes vivían acá
+      mismo, movidas junto con el resto de la derivación de color), `H +=
+      delta`, **S/V/alfa intactos**. Convierte por `color.NRGBAModel`
+      (alfa NO premultiplicado) antes de la matemática — con alfa
+      premultiplicado el RGB se escala hacia negro cuando el alfa baja,
+      ensuciando el tono de los bordes suavizados del ícono. Por qué
+      rotación y no reemplazo plano: al no tocar S/V, un píxel negro
+      (saturación 0) o transparente (alfa 0) queda intacto SOLO, sin caso
+      especial, y el borde suavizado sigue suavizado.
+    - **S3 sacó de acá `hueDeltas`/`hueIndex` y `rgbToHSV`/`hsvToRGB`** —
+      viven en `internal/config` ahora (`accountcolor.go`, bullet propio
+      en la sección `config` de este manual) — `internal/restapi` no
+      puede importar `main`, así que la paleta/el hash tenían que mudarse
+      a un paquete que las dos puntas pudieran leer.
+      `TestRecolorTrayIconMatchesConfigHex` (`trayicon_recolor_test.go`)
+      es la prueba cruzada: rota el píxel de marca EXACTO con el delta de
+      una cuenta y verifica que el resultado sea byte a byte el mismo hex
+      que `config.ColorForAccount` calculó — la garantía estructural de
+      que bandeja y tablero nunca pueden divergir.
     - Verificado con captura real, no solo con el test — ver el bullet de
-      S2 más arriba.
+      S2/S3 más arriba y `docs/S3-DIAGRAMA-TABLERO-CUENTA.md`.
   - `tray_other.go` (`//go:build !windows`): no-op, `<-ctx.Done()` — el
     build headless/Linux no cambia en nada. `account` en la firma sin
     usar, mismo motivo que `lang`/`langChanged`: un solo signature para

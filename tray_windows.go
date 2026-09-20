@@ -11,6 +11,7 @@ import (
 	"fyne.io/systray"
 	"golang.org/x/sys/windows/registry"
 
+	"piumy-gateway/internal/config"
 	"piumy-gateway/internal/i18n"
 	"piumy-gateway/internal/version"
 )
@@ -63,7 +64,11 @@ func runTrayOrWait(ctx context.Context, stop context.CancelFunc, dashboardURL st
 		if account != "" {
 			title = "Piumy Gateway — " + account
 		}
-		icon, err := RecolorTrayIcon(trayIcon, account)
+		// S3 (ct-2026-09-20-1202): config.ColorForAccount is the ONE place
+		// that decides what color this account gets — internal/restapi reads
+		// the exact same function for the dashboard's accent, so the two
+		// surfaces can never disagree. This file only paints.
+		icon, err := RecolorTrayIcon(trayIcon, config.ColorForAccount(account).HueDelta)
 		if err != nil {
 			log.Printf("tray: recolor icon for account %q: %v — usando el ícono normal", account, err)
 		}
@@ -74,7 +79,7 @@ func runTrayOrWait(ctx context.Context, stop context.CancelFunc, dashboardURL st
 		mVersion.Disable()
 		var mAccount *systray.MenuItem
 		if account != "" {
-			mAccount = systray.AddMenuItem(i18n.T(lang, "server.tray_account", "account", account), i18n.T(lang, "server.tray_account", "account", account))
+			mAccount = systray.AddMenuItem(i18n.T(lang, "account.label", "account", account), i18n.T(lang, "account.label", "account", account))
 			mAccount.Disable()
 		}
 		mOpen := systray.AddMenuItem(i18n.T(lang, "server.tray_open_dashboard"), i18n.T(lang, "server.tray_open_dashboard_tooltip"))
@@ -108,8 +113,8 @@ func runTrayOrWait(ctx context.Context, stop context.CancelFunc, dashboardURL st
 					mQuit.SetTooltip(i18n.T(newLang, "server.tray_quit_tooltip"))
 					mVersion.SetTooltip(i18n.T(newLang, "server.tray_version_tooltip"))
 					if mAccount != nil {
-						mAccount.SetTitle(i18n.T(newLang, "server.tray_account", "account", account))
-						mAccount.SetTooltip(i18n.T(newLang, "server.tray_account", "account", account))
+						mAccount.SetTitle(i18n.T(newLang, "account.label", "account", account))
+						mAccount.SetTooltip(i18n.T(newLang, "account.label", "account", account))
 					}
 				case <-ctx.Done():
 					stop()

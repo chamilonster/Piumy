@@ -37,6 +37,16 @@
             <span class="paren">(</span><span class="eye">◕</span><span class="mouth">‿</span><span class="eye">◕</span><span class="paren">)</span>
           </div>
           <span class="brand-name">piumy</span>
+          <!-- brand-account (S3, ct-2026-09-20-1202): el mismo argumento de
+               seguridad de S2 (la bandeja), en el navegador — dos tableros
+               en dos pestañas son hoy tan indistinguibles como eran los dos
+               íconos antes de S2. Oculto por defecto — solo aparece con
+               PIUMY_ACCOUNT (loadStatus en app.js), coloreado con
+               s.account_color (el MISMO hex que pinta la bandeja,
+               config.ColorForAccount — internal/restapi se lo cuenta
+               tal cual, nunca lo deriva de nuevo). Sin cuenta, este span
+               vacío+oculto no cambia nada del tablero de hoy. -->
+          <span class="brand-account hidden" id="brandaccount"></span>
         </div>
         <span class="live"><span class="pulse"></span> alive · <span id="moodlabel">idle</span> · <span class="badge" id="status">—</span></span>
       </div>

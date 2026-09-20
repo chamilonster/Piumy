@@ -11,6 +11,7 @@ import (
 	"strconv"
 
 	"piumy-gateway/internal/capipush"
+	"piumy-gateway/internal/config"
 	"piumy-gateway/internal/store"
 )
 
@@ -128,6 +129,13 @@ func (d Deps) handleStatus(w http.ResponseWriter, r *http.Request) {
 		qrExpired = expired
 	}
 
+	// account/account_color (S3, ct-2026-09-20-1202): config.ColorForAccount
+	// is the SAME function main's trayicon_recolor.go feeds the tray icon
+	// with — this just reports its Hex, never derives its own. Empty
+	// d.Account -> both come back "" (Hex is already "" for that case, see
+	// AccountColor's own doc), the dashboard shows nothing new.
+	accountColor := config.ColorForAccount(d.Account)
+
 	writeJSON(w, http.StatusOK, map[string]any{
 		"name":       snap.OwnName,
 		"own_number": snap.OwnJID,
@@ -163,6 +171,9 @@ func (d Deps) handleStatus(w http.ResponseWriter, r *http.Request) {
 		"qr_code":       qrCode,
 		"qr_expires_at": qrExpiresAt,
 		"qr_expired":    qrExpired,
+
+		"account":       d.Account,
+		"account_color": accountColor.Hex,
 	})
 }
 

@@ -653,6 +653,11 @@ func main() {
 		// below (M1, ct-2026-07-22-1301) — GET /api/agents synthesizes the
 		// principal's row from it + the KV capi-connector settings.
 		PrincipalTerminalID: cfg.DefaultTerminalID,
+		// Account (S3, ct-2026-09-20-1202): GET /api/status reports this
+		// plus config.ColorForAccount(Account).Hex — the SAME function
+		// tray_windows.go feeds RecolorTrayIcon with, so the dashboard's
+		// accent and the tray icon's color can never disagree.
+		Account: cfg.Account,
 		// DefaultDispatchDebounce/DefaultMaxDispatchDebounce (T90,
 		// ct-2026-08-28-1350) — the SAME values already threaded into
 		// pusher's capipush.Config below, reused as the tablero's

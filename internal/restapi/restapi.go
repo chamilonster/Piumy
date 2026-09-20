@@ -285,6 +285,15 @@ type Deps struct {
 	// list rather than shown with a blank identity.
 	PrincipalTerminalID string
 
+	// Account is cfg.Account (S3, ct-2026-09-20-1202) — GET /api/status
+	// reports it verbatim, plus config.ColorForAccount(Account).Hex, so the
+	// dashboard paints the EXACT color the tray icon does (config decides
+	// WHAT color, this package only reports it — same split main's
+	// trayicon_recolor.go follows for HOW to paint it). Empty -> both
+	// "account"/"account_color" come back empty, the dashboard shows
+	// nothing new (S1/S2's own "no account, no change" rule, S3's turn).
+	Account string
+
 	// APIKey gates every /api/* request via the X-API-Key header or a
 	// ?key= query param. Empty = open (dev only, LAN-bound deployment) —
 	// same fail-OPEN-when-unset convention Piumy's restapi already used

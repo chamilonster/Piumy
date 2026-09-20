@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"piumy-gateway/internal/config"
 	"piumy-gateway/internal/governor"
 	"piumy-gateway/internal/sessionbackup"
 	"piumy-gateway/internal/state"
@@ -120,6 +121,48 @@ func TestStatusEndpointDefaultTerminalConfigured(t *testing.T) {
 	getJSON(t, srv.URL+"/api/status", &out)
 	if !out.DefaultTerminalConfigured {
 		t.Error("default_terminal_configured = false with PrincipalTerminalID set, want true")
+	}
+}
+
+// TestStatusEndpointAccountEmptyStaysEmpty is S3's own verification point 1
+// (ct-2026-09-20-1202): no Deps.Account, "account"/"account_color" come
+// back empty — the dashboard shows nothing new, same rule S1/S2 already put
+// on the no-account case.
+func TestStatusEndpointAccountEmptyStaysEmpty(t *testing.T) {
+	sm := state.NewManager(filepath.Join(t.TempDir(), "status.json"), 8)
+	srv := httptest.NewServer(NewMux(Deps{State: sm}))
+	defer srv.Close()
+
+	var out struct {
+		Account      string `json:"account"`
+		AccountColor string `json:"account_color"`
+	}
+	getJSON(t, srv.URL+"/api/status", &out)
+	if out.Account != "" || out.AccountColor != "" {
+		t.Errorf("account/account_color with no Deps.Account = %+v, want both empty", out)
+	}
+}
+
+// TestStatusEndpointAccountColorMatchesConfig is S3's central invariant:
+// GET /api/status must report EXACTLY config.ColorForAccount's own Hex —
+// the same function main's trayicon_recolor.go feeds the tray icon with —
+// never a separately-derived color that could drift from it.
+func TestStatusEndpointAccountColorMatchesConfig(t *testing.T) {
+	sm := state.NewManager(filepath.Join(t.TempDir(), "status.json"), 8)
+	srv := httptest.NewServer(NewMux(Deps{State: sm, Account: "trabajo"}))
+	defer srv.Close()
+
+	var out struct {
+		Account      string `json:"account"`
+		AccountColor string `json:"account_color"`
+	}
+	getJSON(t, srv.URL+"/api/status", &out)
+	want := config.ColorForAccount("trabajo")
+	if out.Account != "trabajo" {
+		t.Errorf("account = %q, want %q", out.Account, "trabajo")
+	}
+	if out.AccountColor != want.Hex {
+		t.Errorf("account_color = %q, want %q (config.ColorForAccount(\"trabajo\").Hex)", out.AccountColor, want.Hex)
 	}
 }
 

@@ -6,34 +6,25 @@ package main
 // build tag: this is pure image/container arithmetic, nothing Windows-
 // specific, so its test runs on every platform even though only
 // tray_windows.go calls it today.
+//
+// S3 (ct-2026-09-20-1202) moved WHAT color an account gets to
+// internal/config (config.ColorForAccount) — internal/restapi can't import
+// main, so the dashboard needs the same answer from somewhere both can
+// reach. This file only knows HOW to paint an ICO with a color it's
+// handed; RGBToHSV/HSVToRGB also moved there, reused here instead of a
+// second copy that could drift.
 
 import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"hash/fnv"
 	"image"
 	"image/color"
 	"image/png"
 	"math"
+
+	"piumy-gateway/internal/config"
 )
-
-// hueDeltas is the fixed palette S2's contract calls for — degrees to ADD
-// to every pixel's hue, picked deterministically per account (hueIndex
-// below). 7 values 45° apart, none 0 (0 would be the brand green
-// unchanged): any two are at least 45° apart from each other AND from the
-// original color, never the few-degrees-apart near-miss a raw
-// hash%360 could produce.
-var hueDeltas = [...]float64{45, 90, 135, 180, 225, 270, 315}
-
-// hueIndex picks account's palette slot via FNV-32a (stdlib, unseeded —
-// deterministic across runs and processes, unlike Go's map hash) — same
-// account, same slot, always.
-func hueIndex(account string) int {
-	h := fnv.New32a()
-	h.Write([]byte(account))
-	return int(h.Sum32() % uint32(len(hueDeltas)))
-}
 
 // icoHeaderSize/icoEntrySize are the classic ICONDIR/ICONDIRENTRY sizes —
 // see docs/S2-DIAGRAMA-DISTINTIVO-VISUAL.md for the byte layout, verified
@@ -50,21 +41,22 @@ type icoEntry struct {
 }
 
 // RecolorTrayIcon returns icoData with every embedded image's hue rotated
-// for account, or icoData UNCHANGED (same slice, byte-identical) when
-// account is empty — the default install's 99% case never even enters the
-// parsing path. Any failure (bad container, bad PNG, encode error) returns
-// icoData unchanged plus a non-nil error — the caller logs it and keeps
-// going with the original icon; a broken recolor must never block startup
-// or ship a broken icon.
-func RecolorTrayIcon(icoData []byte, account string) ([]byte, error) {
-	if account == "" {
+// by hueDelta degrees, or icoData UNCHANGED (same slice, byte-identical)
+// when hueDelta is 0 — the default install's 99% case (no account,
+// config.ColorForAccount("").HueDelta == 0) never even enters the parsing
+// path; 0 is never a real palette value (config.go's own invariant), so
+// this can't misfire on a legitimate account. Any failure (bad container,
+// bad PNG, encode error) returns icoData unchanged plus a non-nil error —
+// the caller logs it and keeps going with the original icon; a broken
+// recolor must never block startup or ship a broken icon.
+func RecolorTrayIcon(icoData []byte, hueDelta float64) ([]byte, error) {
+	if hueDelta == 0 {
 		return icoData, nil
 	}
 	entries, err := parseICO(icoData)
 	if err != nil {
 		return icoData, err
 	}
-	delta := hueDeltas[hueIndex(account)]
 
 	payloads := make([][]byte, len(entries))
 	for i, e := range entries {
@@ -77,7 +69,7 @@ func RecolorTrayIcon(icoData []byte, account string) ([]byte, error) {
 			return icoData, fmt.Errorf("trayicon: entry %d: decode png: %w", i, err)
 		}
 		var buf bytes.Buffer
-		if err := png.Encode(&buf, rotateHue(img, delta)); err != nil {
+		if err := png.Encode(&buf, rotateHue(img, hueDelta)); err != nil {
 			return icoData, fmt.Errorf("trayicon: entry %d: encode png: %w", i, err)
 		}
 		payloads[i] = buf.Bytes()
@@ -155,76 +147,14 @@ func rotateHue(img image.Image, deltaDegrees float64) *image.NRGBA {
 	for y := b.Min.Y; y < b.Max.Y; y++ {
 		for x := b.Min.X; x < b.Max.X; x++ {
 			c := color.NRGBAModel.Convert(img.At(x, y)).(color.NRGBA)
-			h, s, v := rgbToHSV(c.R, c.G, c.B)
+			h, s, v := config.RGBToHSV(c.R, c.G, c.B)
 			h = math.Mod(h+deltaDegrees, 360)
 			if h < 0 {
 				h += 360
 			}
-			r, g, bl := hsvToRGB(h, s, v)
+			r, g, bl := config.HSVToRGB(h, s, v)
 			out.SetNRGBA(x, y, color.NRGBA{R: r, G: g, B: bl, A: c.A})
 		}
 	}
 	return out
-}
-
-// rgbToHSV/hsvToRGB: standard HSV conversion (h in [0,360), s/v in [0,1]) —
-// stdlib has no HSV type, image/color only ever deals in RGB-family models.
-func rgbToHSV(r, g, b uint8) (h, s, v float64) {
-	rf, gf, bf := float64(r)/255, float64(g)/255, float64(b)/255
-	max := math.Max(rf, math.Max(gf, bf))
-	min := math.Min(rf, math.Min(gf, bf))
-	v = max
-	d := max - min
-	if max > 0 {
-		s = d / max
-	}
-	if d == 0 {
-		return 0, s, v
-	}
-	switch max {
-	case rf:
-		h = math.Mod((gf-bf)/d, 6)
-	case gf:
-		h = (bf-rf)/d + 2
-	default:
-		h = (rf-gf)/d + 4
-	}
-	h *= 60
-	if h < 0 {
-		h += 360
-	}
-	return h, s, v
-}
-
-func hsvToRGB(h, s, v float64) (r, g, b uint8) {
-	c := v * s
-	x := c * (1 - math.Abs(math.Mod(h/60, 2)-1))
-	m := v - c
-	var rf, gf, bf float64
-	switch {
-	case h < 60:
-		rf, gf, bf = c, x, 0
-	case h < 120:
-		rf, gf, bf = x, c, 0
-	case h < 180:
-		rf, gf, bf = 0, c, x
-	case h < 240:
-		rf, gf, bf = 0, x, c
-	case h < 300:
-		rf, gf, bf = x, 0, c
-	default:
-		rf, gf, bf = c, 0, x
-	}
-	return clamp255(rf + m), clamp255(gf + m), clamp255(bf + m)
-}
-
-func clamp255(f float64) uint8 {
-	v := math.Round(f * 255)
-	if v < 0 {
-		return 0
-	}
-	if v > 255 {
-		return 255
-	}
-	return uint8(v)
 }

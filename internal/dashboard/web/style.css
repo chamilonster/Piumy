@@ -101,6 +101,12 @@ body::after {
   border: 1px solid var(--border); border-radius: 20px; background: rgba(255,255,255,.02);
 }
 .brand-name { font-family: var(--mono); font-weight: 700; font-size: clamp(14px, 3vw, 18px); color: var(--phos); letter-spacing: .02em; text-shadow: 0 0 6px rgba(89,255,166,.3); }
+/* .brand-account (S3, ct-2026-09-20-1202): el acento de cuenta, mismo color
+   que la bandeja — color viene INLINE por JS (loadStatus, app.js) desde
+   s.account_color, nunca hardcodeado acá (la paleta vive en internal/config,
+   una sola vez). border usa currentColor a propósito: un solo style.color
+   puesto por JS pinta texto Y borde juntos, sin duplicar la propiedad. */
+.brand-account { font-family: var(--mono); font-weight: 600; font-size: 11px; padding: 2px 8px; border: 1px solid currentColor; border-radius: 10px; }
 .face {
   font-size: clamp(52px, 12vw, 88px); line-height: 1; letter-spacing: .06em;
   color: var(--phos); text-shadow: 0 0 10px rgba(89,255,166,.5), 0 0 34px rgba(37,211,102,.28);
