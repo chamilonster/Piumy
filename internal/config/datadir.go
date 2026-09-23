@@ -49,20 +49,9 @@ func DataDir() (string, error) {
 // root; set = that same root's accounts/<slug> subfolder (S1,
 // ct-2026-09-20-1100).
 func dataDirFor(goos, localAppData, home, account string) (string, error) {
-	var base string
-	if goos == "windows" && localAppData != "" {
-		base = filepath.Join(localAppData, "Piumy")
-	} else if home == "" {
-		return "", fmt.Errorf("config: no se pudo resolver el directorio de datos del sistema operativo (sin HOME ni %%LOCALAPPDATA%%) — seteá PIUMY_DATA_DIR a mano")
-	} else {
-		switch goos {
-		case "windows":
-			base = filepath.Join(home, "AppData", "Local", "Piumy")
-		case "darwin":
-			base = filepath.Join(home, "Library", "Application Support", "Piumy")
-		default:
-			base = filepath.Join(home, ".local", "share", "piumy")
-		}
+	base, err := baseDir(goos, localAppData, home)
+	if err != nil {
+		return "", err
 	}
 	if account == "" {
 		return base, nil
@@ -71,7 +60,32 @@ func dataDirFor(goos, localAppData, home, account string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(base, "accounts", slug), nil
+	return filepath.Join(base, accountsDirName, slug), nil
+}
+
+// accountsDirName is the folder every named account lives under, next to the
+// default account's own data (S1) — also where ReserveAccount (S4) looks for
+// the next free name.
+const accountsDirName = "accounts"
+
+// baseDir is the OS's own per-app data root — the default account's data dir
+// itself, and the parent of accountsDirName. Split out of dataDirFor so
+// ReserveAccount (S4) reads the SAME root without repeating the per-OS switch.
+func baseDir(goos, localAppData, home string) (string, error) {
+	if goos == "windows" && localAppData != "" {
+		return filepath.Join(localAppData, "Piumy"), nil
+	}
+	if home == "" {
+		return "", fmt.Errorf("config: no se pudo resolver el directorio de datos del sistema operativo (sin HOME ni %%LOCALAPPDATA%%) — seteá PIUMY_DATA_DIR a mano")
+	}
+	switch goos {
+	case "windows":
+		return filepath.Join(home, "AppData", "Local", "Piumy"), nil
+	case "darwin":
+		return filepath.Join(home, "Library", "Application Support", "Piumy"), nil
+	default:
+		return filepath.Join(home, ".local", "share", "piumy"), nil
+	}
 }
 
 // accountSlug validates PIUMY_ACCOUNT as a filesystem-safe folder name —

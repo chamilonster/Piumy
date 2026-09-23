@@ -696,6 +696,14 @@ func (a *Adapter) Connected() bool {
 	return a.client.IsConnected()
 }
 
+// Paired reports whether a WhatsApp account is linked to this session store
+// (Store.ID set) — NOT whether the socket is up right now, which Connected
+// answers. Read at boot (S4, ct-2026-09-23-1908) to tell a brand-new account
+// that still needs its QR apart from a linked one that is merely reconnecting.
+func (a *Adapter) Paired() bool {
+	return a.client.Store.ID != nil
+}
+
 // Inbound streams messages the event handler maps from whatsmeow events.
 func (a *Adapter) Inbound() <-chan gateway.Inbound {
 	return a.inbound

@@ -83,6 +83,15 @@ func runTrayOrWait(ctx context.Context, stop context.CancelFunc, dashboardURL st
 			mAccount.Disable()
 		}
 		mOpen := systray.AddMenuItem(i18n.T(lang, "server.tray_open_dashboard"), i18n.T(lang, "server.tray_open_dashboard_tooltip"))
+		// S4 (ct-2026-09-23-1908): "Abrir otro Piumy". Absent — not disabled —
+		// where it can't work (see config.CanOpenAnotherAccount). anotherClicked
+		// stays nil then, and a nil channel never fires inside the select below.
+		var mAnother *systray.MenuItem
+		var anotherClicked <-chan struct{}
+		if config.CanOpenAnotherAccount() {
+			mAnother = systray.AddMenuItem(i18n.T(lang, "server.tray_open_another"), i18n.T(lang, "server.tray_open_another_tooltip"))
+			anotherClicked = mAnother.ClickedCh
+		}
 		mQuit := systray.AddMenuItem(i18n.T(lang, "server.tray_quit"), i18n.T(lang, "server.tray_quit_tooltip"))
 
 		go func() {
@@ -90,6 +99,10 @@ func runTrayOrWait(ctx context.Context, stop context.CancelFunc, dashboardURL st
 				select {
 				case <-mOpen.ClickedCh:
 					openAppWindow(dashboardURL)
+				case <-anotherClicked:
+					// Own goroutine: it runs powershell (about a second) and must
+					// not freeze this loop — Quit and language changes keep working.
+					go openAnotherPiumy()
 				case <-mQuit.ClickedCh:
 					stop()
 					systray.Quit()
@@ -109,6 +122,10 @@ func runTrayOrWait(ctx context.Context, stop context.CancelFunc, dashboardURL st
 					// does render.
 					mOpen.SetTitle(i18n.T(newLang, "server.tray_open_dashboard"))
 					mOpen.SetTooltip(i18n.T(newLang, "server.tray_open_dashboard_tooltip"))
+					if mAnother != nil {
+						mAnother.SetTitle(i18n.T(newLang, "server.tray_open_another"))
+						mAnother.SetTooltip(i18n.T(newLang, "server.tray_open_another_tooltip"))
+					}
 					mQuit.SetTitle(i18n.T(newLang, "server.tray_quit"))
 					mQuit.SetTooltip(i18n.T(newLang, "server.tray_quit_tooltip"))
 					mVersion.SetTooltip(i18n.T(newLang, "server.tray_version_tooltip"))

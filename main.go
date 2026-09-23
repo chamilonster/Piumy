@@ -104,6 +104,14 @@ func main() {
 	// see appmutex_windows.go. No-op on other platforms.
 	acquireAppMutex()
 
+	// S4 (ct-2026-09-23-1908): --account <name> becomes PIUMY_ACCOUNT, the one
+	// input S1 reads — BEFORE ApplyFileDefaults/Load below, both of which look
+	// at it. It's how the "Piumy (cuenta-N)" shortcuts pick their account (a
+	// .lnk can't set env vars). Nothing passed: nothing changes.
+	if err := applyAccountFlag(os.Args[1:]); err != nil {
+		log.Fatalf("argumentos: %v", err)
+	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
@@ -726,7 +734,15 @@ func main() {
 	// trayLangChanged (above) is what keeps the menu in sync after that —
 	// Opciones' language change doesn't wait for a restart.
 	trayRaw, _ := s.KVGet(store.SettingLanguage)
-	runTrayOrWait(ctx, stop, "http://localhost:"+restPort+"/dashboard", i18n.Resolve(trayRaw), trayLangChanged, cfg.Account)
+	dashboardURL := "http://localhost:" + restPort + "/dashboard"
+	// S4 (ct-2026-09-23-1908): a named account with no WhatsApp linked yet
+	// opens its own dashboard — see openDashboardAtStart. Read here, after
+	// everything is bound and serving: pairing can't have started (it waits
+	// for the "Conectar QR" click), so Paired() still means "linked at boot".
+	if openDashboardAtStart(cfg.Account, gw.Paired()) {
+		openAppWindow(dashboardURL)
+	}
+	runTrayOrWait(ctx, stop, dashboardURL, i18n.Resolve(trayRaw), trayLangChanged, cfg.Account)
 	log.Println("piumy-gateway shutting down")
 
 	// Orden de apagado: dejar de aceptar tráfico nuevo -> drenar el

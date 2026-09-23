@@ -457,6 +457,8 @@ var esCatalog = map[string]string{
 	// nombre del producto, nunca se traduce.
 	"server.tray_open_dashboard":         "Abrir dashboard",
 	"server.tray_open_dashboard_tooltip": "Abrir el dashboard en una ventana",
+	"server.tray_open_another":           "Abrir otro Piumy",
+	"server.tray_open_another_tooltip":   "Abrir otra cuenta de Piumy, con su propio WhatsApp",
 	"server.tray_quit":                   "Salir",
 	"server.tray_quit_tooltip":           "Cerrar piumy-gateway",
 	"server.tray_version_tooltip":        "Versión de piumy-gateway corriendo",
@@ -813,6 +815,8 @@ var enCatalog = map[string]string{
 	// server.tray_* — see the matching comment in esCatalog.
 	"server.tray_open_dashboard":         "Open dashboard",
 	"server.tray_open_dashboard_tooltip": "Open the dashboard in a window",
+	"server.tray_open_another":           "Open another Piumy",
+	"server.tray_open_another_tooltip":   "Open another Piumy account, with its own WhatsApp",
 	"server.tray_quit":                   "Quit",
 	"server.tray_quit_tooltip":           "Close piumy-gateway",
 	"server.tray_version_tooltip":        "piumy-gateway version currently running",

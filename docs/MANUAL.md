@@ -144,6 +144,28 @@ solo los campos que sus propios paquetes necesitan.
     (S3, ver abajo) — cablear desde acá en vez de un tercer/cuarto
     `os.Getenv` es la regla del proyecto. Ver
     `docs/S2-DIAGRAMA-DISTINTIVO-VISUAL.md`.
+  - **`newaccount.go` — abrir una cuenta nueva (S4, `ct-2026-09-23-1908`).**
+    Tres botones, todos sobre "qué necesita una cuenta NUEVA de la config":
+    - `ReserveAccount() (name, dir string, err error)` — elige `cuenta-N`
+      (N>=2, la primera cuyo `accounts/<slug>` no existe) y la **reserva con
+      `os.Mkdir`**, no solo mirando: dos clics seguidos en la bandeja no pueden
+      elegir el mismo nombre (`TestReserveAccountInConcurrentCallsGetDistinctNames`).
+      La raíz sale de la base del SO (`baseDir`, extraída de `dataDirFor`), no
+      de `DataDir()`: un Piumy que ya es `cuenta-2` responde `cuenta-3`.
+    - `EnvForNewAccount(env []string) []string` — el entorno con el que se
+      lanza el proceso hijo, **sin lo que una cuenta con nombre no hereda**:
+      `accountOwnedPathVars` (la MISMA lista de `filedefaults.go`) más
+      `PIUMY_DATA_DIR`/`PIUMY_MCP_ADDR`/`PIUMY_REST_ADDR`. Sin esto el hijo
+      hereda el `PIUMY_DB_PATH`/`WA_DB_PATH`/... que `ApplyFileDefaults` del
+      padre dejó en su entorno, `envPath()` los respeta verbatim y el hijo abre
+      la DB y la sesión de WhatsApp **vivas** del padre (el mutex no lo frena:
+      hashea el directorio del hijo). Medido en el smoke real con un binario
+      sin el filtro: el hijo escribió en la carpeta del padre, pisó su
+      `agent-connect.json` y dejó `accounts/cuenta-2` vacía.
+    - `CanOpenAnotherAccount() bool` — `false` con `PIUMY_DATA_DIR` puesto
+      (`DataDir()` lo devuelve verbatim ignorando la cuenta): la bandeja no
+      muestra el ítem. Una instancia de prueba así jamás toca la raíz real.
+    Ver `docs/S4-DIAGRAMA-ABRIR-OTRO-PIUMY.md`.
   - **`accountcolor.go` — `AccountColor`/`ColorForAccount`/`RGBToHSV`/
     `HSVToRGB` (S3, `ct-2026-09-20-1202`).** La pieza de diseño central del
     peldaño: **única fuente de color**, movida acá desde `main` (que S2
@@ -2477,6 +2499,11 @@ la única capa que orquesta este sweep.
    `Start()` ya no arranca pairLoop sin sesión — espera a Reconnect.
 - `(*Adapter) Stop()` / `Connected()` (delega a `client.IsConnected()`,
   sin duplicar estado) / `Inbound() <-chan gateway.Inbound`.
+- `(*Adapter) Paired() bool` (S4, `ct-2026-09-23-1908`) — `client.Store.ID != nil`:
+  hay una cuenta de WhatsApp vinculada a este store. NO es `Connected()` (socket
+  arriba ahora): distingue una cuenta nueva que aún necesita su QR de una ya
+  vinculada que solo se está reconectando. `main.go` lo lee una vez al arrancar
+  (ver `openDashboardAtStart`).
 
 **Inbound** (`inbound.go`)
 - `handleEvent` — el único `AddEventHandler` registrado (en `New`);
@@ -10373,6 +10400,52 @@ es un paso aparte, conjunto con el boss (no en `main.go`).
       antes de S2 (solo versión + Abrir dashboard + Salir, sin ítem de
       cuenta) y el ícono es indistinguible del de una instalación default
       (esperado — ver docs/S2-DIAGRAMA-DISTINTIVO-VISUAL.md).
+  - **"Abrir otro Piumy" — S4 (`ct-2026-09-23-1908`, boss: "desde el tray,
+    open new piumy y crea un acceso directo en escritorio, y menu inicio").**
+    - **Flag `--account <nombre>`** (`account_launch.go`, `applyAccountFlag`,
+      llamado en `main()` ANTES de `ApplyFileDefaults`/`Load`): se aplica como
+      `PIUMY_ACCOUNT` (la única entrada que S1 ya lee) y **gana** sobre una
+      variable ya seteada. Existe porque un `.lnk` no puede setear variables
+      de entorno. Estricto: flag desconocido o argumento suelto es error
+      (`--acount x` no arranca la cuenta por defecto en silencio). Sin
+      argumentos no toca el entorno: la instalación viva arranca idéntica.
+    - **Ítem "Abrir otro Piumy"** (`tray_windows.go`, claves
+      `server.tray_open_another`/`_tooltip`, ES/EN, re-renderizado en
+      `langChanged`): entre "Abrir dashboard" y "Salir"; ausente (no
+      deshabilitado) si `!config.CanOpenAnotherAccount()`. Al clic corre
+      `openAnotherPiumy()` en su goroutine (`newaccount_windows.go`):
+      `config.ReserveAccount` → `writeAccountIcon` → dos `.lnk`
+      "Piumy (cuenta-N)" (Escritorio + Inicio > Programas, carpetas por
+      `windows.KnownFolderPath`, `shortcut_windows.go`) → `launchAccount`
+      (`exe --account cuenta-N`, `cmd.Env = config.EnvForNewAccount(...)`,
+      `Start` + `Release`: proceso separado que sobrevive al padre). Todo
+      después del nombre es best effort: un fallo se loguea y el Piumy nuevo
+      abre igual.
+    - **`.lnk` con powershell + `WScript.Shell`**, sin dependencia nueva y con
+      `CREATE_NO_WINDOW`; ruta/destino/args/carpeta/ícono viajan por variables
+      de entorno del hijo, nunca pegados en el texto del script (un perfil
+      `C:\Users\O'Brien` lo rompería). `TestCreateAccountShortcutsRoundTripsAwkwardPaths`
+      lo lee de vuelta con `'`, espacio y acento en las rutas.
+    - **Ícono de color en el acceso directo:** `writeAccountIcon` escribe
+      `accounts/<cuenta>/piumy.ico` = `RecolorTrayIcon(trayIcon,
+      config.ColorForAccount(name).HueDelta)` y el `.lnk` lo usa por
+      `IconLocation` — el MISMO color que la bandeja y el tablero por
+      construcción (misma función). Sin ícono (error) el `.lnk` usa el del exe.
+    - **Abrir el tablero solo** (`openDashboardAtStart(account, paired)`, en
+      `main.go` justo antes de `runTrayOrWait`): cuenta con nombre + WhatsApp
+      sin vincular → `openAppWindow(dashboardURL)`. Sin cuenta, nunca. Abre la
+      PANTALLA; la ronda de QR sigue esperando el clic en "Conectar QR" (P2,
+      `ct-2026-07-24-0015`).
+    - **Smoke real (binario de prueba, `LOCALAPPDATA` propio, cuentas de
+      prueba; los `.lnk` y carpetas de prueba se borraron):** clic en la
+      bandeja → carpeta reservada, 2 `.lnk`, hijo separado con su carpeta
+      completa (`secrets/`, `logs/`), padre intacto; el `.lnk` reabre la misma
+      cuenta y abre el tablero (`localhost:<puerto de la cuenta>`); un clic real
+      = una cuenta; el QR se genera al pulsar "Conectar QR" (no se escaneó).
+    - **Conocido, fuera de S4:** las cuentas comparten la cookie de sesión del
+      tablero (mismo host `localhost`, mismo nombre de cookie, secreto distinto
+      por cuenta) — entrar al tablero de una cuenta cierra la sesión del otro
+      (medido con curl: `401` en el primero tras el login del segundo).
   - **i18n (T153 etapa 3c, ct-2026-09-16-1854; +1 clave en S2,
     ct-2026-09-20-1134, renombrada `server.tray_account` →
     `account.label` en S3, ct-2026-09-20-1202 — ya no es solo de la
