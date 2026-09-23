@@ -188,7 +188,7 @@
              cambia de pestaña, si se muestra (con qué placeholder) o se
              oculta entera — "mejor ausente que presente y muerto" para
              Agentes/Reglas/Drafts, que no filtran. -->
-        <input class="search" id="search" type="text" placeholder="Buscar…">
+        <input class="search" id="search" type="search" autocomplete="off" placeholder="Buscar…">
 
         <!-- TAB: CHATS -->
         <div class="tab-panel active" data-panel="chats">
@@ -538,9 +538,9 @@
 
         <div class="divider"></div>
         <p class="modal-sub" data-i18n="action.change_password">Cambiar contraseña</p>
-        <div class="field"><label data-i18n="label.current_password">Contraseña actual</label><input class="inp" id="config_current" type="password" placeholder="contraseña actual" data-i18n-placeholder="placeholder.current_password"></div>
-        <div class="field"><label data-i18n="label.new_password">Nueva contraseña</label><input class="inp" id="config_new" type="password" placeholder="nueva contraseña" data-i18n-placeholder="placeholder.new_password"></div>
-        <div class="field"><label data-i18n="label.confirm_password">Repetir contraseña</label><input class="inp" id="config_repeat" type="password" placeholder="repetir contraseña" data-i18n-placeholder="placeholder.repeat_password"></div>
+        <div class="field"><label data-i18n="label.current_password">Contraseña actual</label><input class="inp" id="config_current" type="password" autocomplete="current-password" placeholder="contraseña actual" data-i18n-placeholder="placeholder.current_password"></div>
+        <div class="field"><label data-i18n="label.new_password">Nueva contraseña</label><input class="inp" id="config_new" type="password" autocomplete="new-password" placeholder="nueva contraseña" data-i18n-placeholder="placeholder.new_password"></div>
+        <div class="field"><label data-i18n="label.confirm_password">Repetir contraseña</label><input class="inp" id="config_repeat" type="password" autocomplete="new-password" placeholder="repetir contraseña" data-i18n-placeholder="placeholder.repeat_password"></div>
         <div class="field"><button class="btn pri block" type="button" id="config_save" data-i18n="action.save">Guardar</button></div>
         <p id="config_result" class="result"></p>
 
@@ -672,8 +672,8 @@
           </div>
           <span class="who"><b>piumy</b>@gateway</span>
         </div>
-        <div class="field"><label data-i18n="label.username">Usuario</label><input class="inp" id="login_user" type="text" value="admin"></div>
-        <div class="field"><label data-i18n="label.password">Contraseña</label><input class="inp" id="login_pass" type="password" placeholder="piumy"></div>
+        <div class="field"><label data-i18n="label.username">Usuario</label><input class="inp" id="login_user" type="text" autocomplete="username" value="admin"></div>
+        <div class="field"><label data-i18n="label.password">Contraseña</label><input class="inp" id="login_pass" type="password" autocomplete="current-password" placeholder="piumy"></div>
         <div class="field"><button class="btn pri block" type="button" id="login_submit" data-i18n="action.sign_in">Entrar</button></div>
         <p id="login_result" class="result"></p>
         <p class="dimlink"><a href="#" id="recover_link" data-i18n="link.forgot_password">¿Olvidaste la contraseña? · Recuperar</a></p>
@@ -698,9 +698,9 @@
         <p id="recover_send_result" class="result"></p>
 
         <div class="divider"></div>
-        <div class="field"><label data-i18n="label.recovery_code">Código (6 dígitos)</label><input class="inp" id="recover_code" type="text" inputmode="numeric" maxlength="6" placeholder="123456"></div>
-        <div class="field"><label data-i18n="label.new_password">Nueva contraseña</label><input class="inp" id="recover_new" type="password" placeholder="nueva contraseña" data-i18n-placeholder="placeholder.new_password"></div>
-        <div class="field"><label data-i18n="label.confirm_password">Repetir contraseña</label><input class="inp" id="recover_repeat" type="password" placeholder="repetir contraseña" data-i18n-placeholder="placeholder.repeat_password"></div>
+        <div class="field"><label data-i18n="label.recovery_code">Código (6 dígitos)</label><input class="inp" id="recover_code" type="text" autocomplete="one-time-code" inputmode="numeric" maxlength="6" placeholder="123456"></div>
+        <div class="field"><label data-i18n="label.new_password">Nueva contraseña</label><input class="inp" id="recover_new" type="password" autocomplete="new-password" placeholder="nueva contraseña" data-i18n-placeholder="placeholder.new_password"></div>
+        <div class="field"><label data-i18n="label.confirm_password">Repetir contraseña</label><input class="inp" id="recover_repeat" type="password" autocomplete="new-password" placeholder="repetir contraseña" data-i18n-placeholder="placeholder.repeat_password"></div>
         <div class="field"><button class="btn pri block" type="button" id="recover_submit" data-i18n="action.reset_password">Restablecer</button></div>
         <p id="recover_result" class="result"></p>
       </div>

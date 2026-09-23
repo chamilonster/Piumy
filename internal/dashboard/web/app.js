@@ -1035,6 +1035,7 @@
     var input = document.createElement("input");
     input.className = "inp";
     input.type = opts.password ? "password" : "text";
+    input.autocomplete = opts.password ? "new-password" : "off";
     input.value = value || "";
     if (opts.placeholder) input.placeholder = opts.placeholder;
     if (opts.readonly) { input.readOnly = true; input.tabIndex = -1; }
@@ -1408,7 +1409,8 @@
     wrap.className = "agentassign-form";
     var input = document.createElement("input");
     input.className = "inp";
-    input.type = "text";
+    input.type = "search";
+    input.autocomplete = "off";
     input.placeholder = t("placeholder.assign_search");
     var results = document.createElement("div");
     results.className = "agentsearch-results hidden";
