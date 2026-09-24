@@ -10319,6 +10319,39 @@ es un paso aparte, conjunto con el boss (no en `main.go`).
   los 6 targets (windows/linux-amd64/linux-arm64/linux-armv7/darwin-arm64/darwin-amd64,
   todos `CGO_ENABLED=0`) a `dist/` — solo Windows lleva `-ldflags -H=windowsgui`
   (la bandeja), el resto corre headless vía el stub `tray_other.go`.
+  - **El setup de Windows también sale de `build-all.sh`** (release 0.12.1,
+    `ct-2026-09-23-2154`): al final, tras los 6 binarios, corre
+    `ISCC.exe installer/windows/piumy.iss` → `dist/Piumy-Setup-<VERSION>.exe`
+    (`VERSION` es la única fuente: el script copia `internal/version/VERSION`
+    — versionado, `go:embed` no cruza el directorio — y genera
+    `installer/windows/version.iss`, ignorado por git). `ISCC.exe` se busca en
+    el `PATH`, en `%ProgramFiles(x86)%\Inno Setup 6`, en `%ProgramFiles%\Inno
+    Setup 6` y en `%LOCALAPPDATA%\Programs\Inno Setup 6` (donde lo deja
+    `winget install JRSoftware.InnoSetup` sin administrador). **Si no lo
+    encuentra, sale con código 1 y un error que lista los lugares donde buscó**
+    — nunca en silencio (los binarios de `dist/` ya quedaron armados). En
+    Linux/Mac (`uname` sin `MINGW/MSYS/CYGWIN`) imprime una nota y sale `0`: el
+    compilador es un programa de Windows y quien arma los otros targets ahí no
+    tiene nada que arreglar.
+  - **Trampa de Git Bash:** reescribe como ruta de Unix todo argumento que
+    empieza con `/`. Los flags de ISCC (`/Q`, `/O…`) y el `/c` de `cmd.exe /c`
+    llegan rotos sin `MSYS_NO_PATHCONV=1`. El script lo antepone a la llamada
+    aunque hoy ISCC corre sin flags; hay que hacer lo mismo en cualquier
+    comando a mano desde Git Bash. Otra: las variables de entorno de Windows
+    llegan a Git Bash con la mayúscula/minúscula con que están
+    (`PROGRAMFILES`, `LOCALAPPDATA`, `ProgramFiles(x86)`) y `printenv` distingue
+    — por eso el script no usa `$ProgramFiles`.
+  - **Cómo se verifica un setup sin ejecutarlo** (la instalación viva del boss
+    corre en la misma máquina): la versión del PE
+    (`(Get-Item dist\Piumy-Setup-X.exe).VersionInfo`, `VersionInfoVersion` del
+    `.iss`); el SHA-256 del binario empaquetado, que el `.iss` calcula al
+    compilar (`GetSHA256OfFile`) sobre el mismo
+    `dist/piumy-gateway-windows-amd64.exe`; y ese binario corrido AISLADO
+    (`LOCALAPPDATA` de prueba, puertos en `127.0.0.1`, claves falsas) — el
+    `initialize` de MCP devuelve `serverInfo.version` (el `Bearer` es la
+    `PIUMY_MCP_KEY` de prueba; la URL sale de `agent-connect.json`, en
+    `<datos>\secrets\`). `innoextract` no sirve para abrir el setup: medido
+    con el de 0.12.1, "Could not determine setup data version".
 
 - Orden de construcción: `acquireAppMutex` (T21, no-op fuera de Windows) →
   `config.ApplyFileDefaults` (T11, ct-2026-08-05-1214 — rellena los

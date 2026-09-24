@@ -6,6 +6,55 @@ Se actualiza en cada deploy/build junto con el relanzamiento del gateway.
 
 ---
 
+## 0.12.1 — 2026-09-23
+
+### Added
+- **Ahora puedes tener más de un Piumy abierto a la vez, cada uno con su
+  propio número de WhatsApp.** En el ícono de la bandeja hay un ítem nuevo,
+  **"Abrir otro Piumy"**. Cada cuenta nueva tiene su propia carpeta, su propia
+  sesión de WhatsApp y su propio tablero: no se mezclan chats ni mensajes.
+- **Cada cuenta se reconoce a simple vista.** El ícono de la bandeja cambia de
+  color, y el nombre de la cuenta aparece en la bandeja, en el título de la
+  ventana y en el tablero — con el mismo color en los tres. Cuando vinculas
+  WhatsApp, el nombre pasa a ser el de tu WhatsApp seguido de los últimos 4
+  dígitos del número (así dos cuentas con el mismo nombre no se confunden);
+  hasta entonces se llaman "cuenta-2", "cuenta-3"…
+- **La pantalla de acceso ya dice de qué cuenta es**, sin tener que entrar
+  primero. Desde otra computadora de tu red, esa pantalla solo dice
+  "cuenta-2": tu nombre y tu número no salen sin iniciar sesión.
+- **Accesos directos listos.** Al abrir otra cuenta, Piumy deja un acceso
+  directo en el Escritorio y en el Menú Inicio, con el ícono del color de esa
+  cuenta, para volver a abrirla. Si tu Piumy ya arranca con Windows, la cuenta
+  nueva también. Cuando vinculas WhatsApp, los accesos directos toman el mismo
+  nombre que la bandeja.
+- **La cuenta nueva abre con la misma clave del tablero** que la cuenta desde
+  la que la abriste, no con la de fábrica (admin / piumy). No hay una segunda
+  clave que recordar.
+- **El tablero de una cuenta nueva se abre solo** mientras no tenga WhatsApp
+  vinculado. El código QR no aparece solo: se genera cuando pulsas "Conectar
+  QR".
+- Quien arranca Piumy a mano puede elegir la cuenta con `--account nombre`.
+
+### Fixed
+- **Dos tableros abiertos a la vez ya no se cierran la sesión entre sí.**
+  Antes, entrar al tablero de una cuenta te sacaba del de la otra.
+- **El buscador de chats ya no se rellena con "admin" en Chrome.** El
+  navegador tomaba la barra de búsqueda por el campo de usuario de la clave
+  guardada.
+
+### Sin cambios
+- **Tu instalación de siempre queda igual**: sigue siendo la cuenta
+  principal, con los mismos datos, la misma clave, el mismo ícono y la misma
+  sesión de WhatsApp. Nada de lo nuevo se nota hasta que abres otra cuenta.
+
+### Para quien arma el instalador
+- `build-all.sh` ahora también arma el setup de Windows
+  (`dist/Piumy-Setup-<versión>.exe`) si encuentra Inno Setup 6; si no lo
+  encuentra, termina con un error que dice dónde buscó. En Linux y Mac avisa
+  que el setup solo se arma en Windows y sigue.
+
+---
+
 ## 0.12.0 — 2026-09-19
 
 ### Changed
