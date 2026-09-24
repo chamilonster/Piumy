@@ -188,6 +188,11 @@ func main() {
 	if err := restapi.SeedRecoveryEmailFromEnv(s); err != nil {
 		log.Printf("restapi: correo de recuperación: siembra falló: %v", err)
 	}
+	// S5 (ct-2026-09-23-2038): a new account opened from a running Piumy gets
+	// that Piumy's login — see SeedDashPassHashFromEnv for why it runs here.
+	if err := restapi.SeedDashPassHashFromEnv(s); err != nil {
+		log.Printf("restapi: clave del tablero: siembra falló: %v", err)
+	}
 
 	// T13 (ct-2026-08-05-123147): sin reglas efectivas la IA nunca actúa
 	// (EffectiveRules' gate duro) — sin esto, una instalación limpia nace
@@ -742,7 +747,7 @@ func main() {
 	if openDashboardAtStart(cfg.Account, gw.Paired()) {
 		openAppWindow(dashboardURL)
 	}
-	runTrayOrWait(ctx, stop, dashboardURL, i18n.Resolve(trayRaw), trayLangChanged, cfg.Account)
+	runTrayOrWait(ctx, stop, dashboardURL, i18n.Resolve(trayRaw), trayLangChanged, cfg.Account, s, sm)
 	log.Println("piumy-gateway shutting down")
 
 	// Orden de apagado: dejar de aceptar tráfico nuevo -> drenar el

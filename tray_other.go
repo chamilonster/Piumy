@@ -9,16 +9,18 @@ import (
 	"runtime"
 
 	"piumy-gateway/internal/i18n"
+	"piumy-gateway/internal/state"
+	"piumy-gateway/internal/store"
 )
 
 // runTrayOrWait is the non-Windows no-op: the tray (ct-2026-07-10-2312, F3)
 // is Windows-desktop only. Same blocking contract as before it existed —
 // wait for shutdown, nothing else. lang/langChanged/account match
 // tray_windows.go's own signature (T153 etapa 3c, ct-2026-09-16-1854; S2,
-// ct-2026-09-20-1134) — unused here, there's no menu to translate or
-// recolor yet, but main.go calls this unconditionally and Go needs one
-// signature for both build tags.
-func runTrayOrWait(ctx context.Context, stop context.CancelFunc, dashboardURL string, lang i18n.Lang, langChanged <-chan i18n.Lang, account string) {
+// ct-2026-09-20-1134; st/sm S5, ct-2026-09-23-2038) — unused here, there's no
+// menu to translate, recolor or open another account from yet, but main.go
+// calls this unconditionally and Go needs one signature for both build tags.
+func runTrayOrWait(ctx context.Context, stop context.CancelFunc, dashboardURL string, lang i18n.Lang, langChanged <-chan i18n.Lang, account string, st *store.Store, sm *state.Manager) {
 	<-ctx.Done()
 }
 

@@ -7,14 +7,43 @@ import (
 	_ "embed"
 	"log"
 	"os/exec"
+	"time"
 
 	"fyne.io/systray"
 	"golang.org/x/sys/windows/registry"
 
 	"piumy-gateway/internal/config"
 	"piumy-gateway/internal/i18n"
+	"piumy-gateway/internal/state"
+	"piumy-gateway/internal/store"
 	"piumy-gateway/internal/version"
 )
+
+// accountLabelPollEvery is how often a named account's tray re-reads its
+// WhatsApp name (S5, ct-2026-09-23-2038). A poll, not an event: the name is one
+// field of state.Status, which has no change notification, and it moves once
+// in an account's life. ponytail: up to 5 s between linking and the tray
+// saying it — move to an event if the tray ever watches more than this field.
+const accountLabelPollEvery = 5 * time.Second
+
+// accountLabels is what the tray says for this account right now — config
+// decides the format, sm holds the WhatsApp name and number it is made from —
+// and the label it said while only the number was known (bare): the name
+// arrives after the number, so a shortcut can still carry that one.
+func accountLabels(account string, sm *state.Manager) (label, bare string) {
+	snap := sm.Snapshot()
+	return config.AccountLabel(account, snap.OwnName, snap.OwnJID), config.AccountLabel(account, "", snap.OwnJID)
+}
+
+// trayTitle is the tray's title and tooltip: the product name, then the
+// account's label when it has one. "Piumy Gateway" is never translated and the
+// label is data (see runTrayOrWait's own notes).
+func trayTitle(label string) string {
+	if label == "" {
+		return "Piumy Gateway"
+	}
+	return "Piumy Gateway — " + label
+}
 
 // trayIcon is la carita Piumy (círculo verde fósforo sobre negro) en
 // 16/32/48 px — generado con un programa descartable stdlib-only
@@ -40,7 +69,13 @@ var trayIcon []byte
 // only — verified with an explicit CGO_ENABLED=0 build before adding this
 // dependency; its only cgo file is systray_darwin.go, never compiled here) —
 // CGO_ENABLED=0 stays intact, the project's central invariant.
-func runTrayOrWait(ctx context.Context, stop context.CancelFunc, dashboardURL string, lang i18n.Lang, langChanged <-chan i18n.Lang, account string) {
+//
+// account is the id ("cuenta-2", "" for the default one) — what decides the
+// icon's color. What the tray SAYS is label (S5, ct-2026-09-23-2038): the
+// WhatsApp name once the session has one, re-read from sm every
+// accountLabelPollEvery, and the shortcuts are renamed with it. st is where
+// "Abrir otro Piumy" reads this account's dashboard login to hand it on.
+func runTrayOrWait(ctx context.Context, stop context.CancelFunc, dashboardURL string, lang i18n.Lang, langChanged <-chan i18n.Lang, account string, st *store.Store, sm *state.Manager) {
 	systray.Run(func() {
 		// T37 (ct-2026-08-08-1433, boss: "quiero que el tray diga la version
 		// de piumy" — acotado después, verbatim: "en el tray en el menú, no
@@ -60,10 +95,8 @@ func runTrayOrWait(ctx context.Context, stop context.CancelFunc, dashboardURL st
 		// pasa por encima ANTES del click, así que el tooltip también
 		// tiene que decirlo. No "corregir" esto para que quede igual a la
 		// versión: son dos jobs distintos.
-		title := "Piumy Gateway"
-		if account != "" {
-			title = "Piumy Gateway — " + account
-		}
+		label, bare := accountLabels(account, sm)
+		title := trayTitle(label)
 		// S3 (ct-2026-09-20-1202): config.ColorForAccount is the ONE place
 		// that decides what color this account gets — internal/restapi reads
 		// the exact same function for the dashboard's accent, so the two
@@ -79,8 +112,13 @@ func runTrayOrWait(ctx context.Context, stop context.CancelFunc, dashboardURL st
 		mVersion.Disable()
 		var mAccount *systray.MenuItem
 		if account != "" {
-			mAccount = systray.AddMenuItem(i18n.T(lang, "account.label", "account", account), i18n.T(lang, "account.label", "account", account))
+			mAccount = systray.AddMenuItem(i18n.T(lang, "account.label", "account", label), i18n.T(lang, "account.label", "account", label))
 			mAccount.Disable()
+			// The WhatsApp name can already be known (status.json survives
+			// restarts) while the shortcuts still carry the id.
+			if label != account {
+				go renameShortcutsToLabel(account, label, bare)
+			}
 		}
 		mOpen := systray.AddMenuItem(i18n.T(lang, "server.tray_open_dashboard"), i18n.T(lang, "server.tray_open_dashboard_tooltip"))
 		// S4 (ct-2026-09-23-1908): "Abrir otro Piumy". Absent — not disabled —
@@ -95,6 +133,13 @@ func runTrayOrWait(ctx context.Context, stop context.CancelFunc, dashboardURL st
 		mQuit := systray.AddMenuItem(i18n.T(lang, "server.tray_quit"), i18n.T(lang, "server.tray_quit_tooltip"))
 
 		go func() {
+			curLang := lang
+			var labelTick <-chan time.Time // nil for the default account: never fires
+			if account != "" {
+				ticker := time.NewTicker(accountLabelPollEvery)
+				defer ticker.Stop()
+				labelTick = ticker.C
+			}
 			for {
 				select {
 				case <-mOpen.ClickedCh:
@@ -102,12 +147,25 @@ func runTrayOrWait(ctx context.Context, stop context.CancelFunc, dashboardURL st
 				case <-anotherClicked:
 					// Own goroutine: it runs powershell (about a second) and must
 					// not freeze this loop — Quit and language changes keep working.
-					go openAnotherPiumy()
+					go openAnotherPiumy(st)
+				case <-labelTick:
+					newLabel, newBare := accountLabels(account, sm)
+					if newLabel == label {
+						continue
+					}
+					previous := label
+					label = newLabel
+					systray.SetTitle(trayTitle(label))
+					systray.SetTooltip(trayTitle(label))
+					mAccount.SetTitle(i18n.T(curLang, "account.label", "account", label))
+					mAccount.SetTooltip(i18n.T(curLang, "account.label", "account", label))
+					go renameShortcutsToLabel(account, label, previous, newBare)
 				case <-mQuit.ClickedCh:
 					stop()
 					systray.Quit()
 					return
 				case newLang := <-langChanged:
+					curLang = newLang
 					// Measured before writing (T153 etapa 3c): AddMenuItem's
 					// own doc says "can be safely invoked from different
 					// goroutines" and SetTitle/SetTooltip route through the
@@ -130,8 +188,8 @@ func runTrayOrWait(ctx context.Context, stop context.CancelFunc, dashboardURL st
 					mQuit.SetTooltip(i18n.T(newLang, "server.tray_quit_tooltip"))
 					mVersion.SetTooltip(i18n.T(newLang, "server.tray_version_tooltip"))
 					if mAccount != nil {
-						mAccount.SetTitle(i18n.T(newLang, "account.label", "account", account))
-						mAccount.SetTooltip(i18n.T(newLang, "account.label", "account", account))
+						mAccount.SetTitle(i18n.T(newLang, "account.label", "account", label))
+						mAccount.SetTooltip(i18n.T(newLang, "account.label", "account", label))
 					}
 				case <-ctx.Done():
 					stop()

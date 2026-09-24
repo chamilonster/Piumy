@@ -80,6 +80,155 @@ func TestCreateAccountShortcutsRoundTripsAwkwardPaths(t *testing.T) {
 	}
 }
 
+func touch(t *testing.T, path string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte("lnk"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func exists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+// Autostart detection hangs on this being the folder the installer's
+// {userstartup} task writes to: Inno expands it from the same per-user Start
+// Menu\Programs\Startup, under %APPDATA%.
+func TestStartupFolderIsTheOneTheInstallerWritesTo(t *testing.T) {
+	appData := os.Getenv("APPDATA")
+	if appData == "" {
+		t.Skip("no %APPDATA%")
+	}
+	got, err := startupFolder()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(appData, "Microsoft", "Windows", "Start Menu", "Programs", "Startup")
+	if !strings.EqualFold(got, want) {
+		t.Errorf("startupFolder() = %q, want %q", got, want)
+	}
+}
+
+func TestCleanShortcutLabel(t *testing.T) {
+	for _, tc := range []struct{ in, want string }{
+		{"Contacto Uno", "Contacto Uno"},
+		{"Contacto Uno · ...0041", "Contacto Uno · ...0041"}, // the label format survives whole
+		{`Ana/Luz: "y" <o> a|b?*`, "AnaLuz y o ab"},          // what Windows refuses in a name
+		{"Uno\tDos\n", "Uno Dos"},                            // control characters become a blank
+		{"  Uno    Dos  ", "Uno Dos"},
+		{"???", ""}, // nothing usable left
+		{"", ""},
+		{strings.Repeat("ñ", 60), strings.Repeat("ñ", maxShortcutLabelRunes)}, // cut by characters, not bytes
+	} {
+		if got := cleanShortcutLabel(tc.in); got != tc.want {
+			t.Errorf("cleanShortcutLabel(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+// Every folder that has the account's shortcut gets it renamed; the Startup
+// folder of someone who didn't choose autostart has none and is left alone.
+func TestRenameAccountShortcutsRenamesInEveryFolderThatHasOne(t *testing.T) {
+	desktop, programs, startup := t.TempDir(), t.TempDir(), t.TempDir()
+	touch(t, filepath.Join(desktop, "Piumy (cuenta-2).lnk"))
+	touch(t, filepath.Join(programs, "Piumy (cuenta-2).lnk"))
+
+	if err := renameAccountShortcuts([]string{desktop, programs, startup}, "Contacto Uno", "cuenta-2"); err != nil {
+		t.Fatalf("renameAccountShortcuts: %v", err)
+	}
+
+	for _, dir := range []string{desktop, programs} {
+		if !exists(filepath.Join(dir, "Piumy (Contacto Uno).lnk")) || exists(filepath.Join(dir, "Piumy (cuenta-2).lnk")) {
+			t.Errorf("%s: not renamed to the WhatsApp name", dir)
+		}
+	}
+	if entries, _ := os.ReadDir(startup); len(entries) != 0 {
+		t.Errorf("a folder without the shortcut got one: %v", entries)
+	}
+}
+
+// The three shortcuts always share a name: if the new name is taken in ANY
+// folder, none is renamed (the contract's "queda Piumy (cuenta-N)").
+func TestRenameAccountShortcutsKeepsTheIdEverywhereWhenTheNameIsTakenAnywhere(t *testing.T) {
+	desktop, programs := t.TempDir(), t.TempDir()
+	touch(t, filepath.Join(desktop, "Piumy (cuenta-2).lnk"))
+	touch(t, filepath.Join(programs, "Piumy (cuenta-2).lnk"))
+	touch(t, filepath.Join(programs, "Piumy (Contacto Uno).lnk")) // another account's
+
+	if err := renameAccountShortcuts([]string{desktop, programs}, "Contacto Uno", "cuenta-2"); err != nil {
+		t.Fatalf("renameAccountShortcuts: %v", err)
+	}
+
+	for _, dir := range []string{desktop, programs} {
+		if !exists(filepath.Join(dir, "Piumy (cuenta-2).lnk")) {
+			t.Errorf("%s: the id-named shortcut is gone although the name was taken", dir)
+		}
+	}
+	if exists(filepath.Join(desktop, "Piumy (Contacto Uno).lnk")) {
+		t.Error("Desktop was renamed while the Start Menu couldn't be — the two would disagree")
+	}
+}
+
+// Nothing usable, or nothing new to say: files untouched.
+func TestRenameAccountShortcutsDoesNothingWithoutAUsableName(t *testing.T) {
+	dir := t.TempDir()
+	touch(t, filepath.Join(dir, "Piumy (cuenta-2).lnk"))
+	for _, label := range []string{"", "???", "cuenta-2"} {
+		if err := renameAccountShortcuts([]string{dir}, label, "cuenta-2"); err != nil {
+			t.Fatalf("label %q: %v", label, err)
+		}
+		if !exists(filepath.Join(dir, "Piumy (cuenta-2).lnk")) {
+			t.Errorf("label %q: the shortcut was renamed or removed", label)
+		}
+	}
+}
+
+// The number reaches the account before its name does, so the label goes
+// "cuenta-2" -> "...0041" -> "Contacto Uno · ...0041" within seconds: the file
+// must follow it to the end — and never touch another account's shortcut.
+func TestRenameAccountShortcutsFollowsTheLabelAsItGrows(t *testing.T) {
+	dir := t.TempDir()
+	touch(t, filepath.Join(dir, "Piumy (cuenta-2).lnk"))
+	touch(t, filepath.Join(dir, "Piumy (cuenta-3).lnk")) // another account's
+
+	steps := []struct {
+		label string
+		olds  []string
+	}{
+		{"...0041", []string{"cuenta-2"}},
+		{"Contacto Uno · ...0041", []string{"cuenta-2", "...0041", "...0041"}},
+		{"Contacto Dos · ...0041", []string{"cuenta-2", "Contacto Uno · ...0041", "...0041"}}, // the name changed later
+	}
+	for _, s := range steps {
+		if err := renameAccountShortcuts([]string{dir}, s.label, s.olds...); err != nil {
+			t.Fatalf("label %q: %v", s.label, err)
+		}
+		if !exists(filepath.Join(dir, "Piumy ("+s.label+").lnk")) {
+			t.Fatalf("the shortcut did not end up as Piumy (%s).lnk", s.label)
+		}
+	}
+	if entries, _ := os.ReadDir(dir); len(entries) != 2 {
+		t.Errorf("the account's shortcut should be ONE file, plus the other account's: %v", entries)
+	}
+	if !exists(filepath.Join(dir, "Piumy (cuenta-3).lnk")) {
+		t.Error("another account's shortcut was touched")
+	}
+}
+
+// After a restart the tray calls again with a label that is already on disk:
+// nothing to do, and no error.
+func TestRenameAccountShortcutsIsANoOpWhenAlreadyRenamed(t *testing.T) {
+	dir := t.TempDir()
+	touch(t, filepath.Join(dir, "Piumy (Contacto Uno · ...0041).lnk"))
+	if err := renameAccountShortcuts([]string{dir}, "Contacto Uno · ...0041", "cuenta-2", "...0041"); err != nil {
+		t.Fatal(err)
+	}
+	if entries, _ := os.ReadDir(dir); len(entries) != 1 {
+		t.Errorf("a re-run changed the folder: %v", entries)
+	}
+}
+
 // The color is the point: a named account's icon file must NOT be the default
 // green icon — and must be the very bytes the tray paints with, so the three
 // surfaces (tray, dashboard, shortcut) can't disagree.

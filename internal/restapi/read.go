@@ -172,7 +172,9 @@ func (d Deps) handleStatus(w http.ResponseWriter, r *http.Request) {
 		"qr_expires_at": qrExpiresAt,
 		"qr_expired":    qrExpired,
 
-		"account":       d.Account,
+		// The label, not the raw id (S5, ct-2026-09-23-2038): WhatsApp name and
+		// number tail once linked. The color stays derived from the id above.
+		"account":       config.AccountLabel(d.Account, snap.OwnName, snap.OwnJID),
 		"account_color": accountColor.Hex,
 	})
 }

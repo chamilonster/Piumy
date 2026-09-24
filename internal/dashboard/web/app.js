@@ -35,7 +35,19 @@
   }
 
   // ── login overlay (ct-2026-07-19-1616, S1d) ─────────────────────────────
+  // S5 (ct-2026-09-23-2038): the account's name and color are written into
+  // <body> by the server (restapi indexWithAccount) — /api/status, where
+  // applyAccountIdentity reads them, needs a session, so the login screen
+  // couldn't say which account it was for. No account: attributes absent, the
+  // chip stays hidden, nothing changes.
   function showLogin() {
+    var account = document.body.dataset.account;
+    var chip = document.getElementById("loginaccount");
+    if (account) {
+      chip.textContent = t("account.label", { account: account });
+      chip.style.color = document.body.dataset.accountColor || "";
+      chip.classList.remove("hidden");
+    }
     document.getElementById("loginmodal").classList.remove("hidden");
   }
   function hideLogin() {

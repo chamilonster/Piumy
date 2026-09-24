@@ -144,7 +144,7 @@ func TestEnvForNewAccountDropsWhatANamedAccountMustNotInherit(t *testing.T) {
 		"=C:=C:\\live",
 	}
 
-	got := EnvForNewAccount(env)
+	got := EnvForNewAccount(env, "")
 
 	if len(got) != len(want) {
 		t.Fatalf("EnvForNewAccount = %v, want %v", got, want)
@@ -161,9 +161,27 @@ func TestEnvForNewAccountDropsWhatANamedAccountMustNotInherit(t *testing.T) {
 // list to remember to update.
 func TestEnvForNewAccountFollowsAccountOwnedPathVars(t *testing.T) {
 	for k := range accountOwnedPathVars {
-		got := EnvForNewAccount([]string{k + "=x", "KEEP=1"})
+		got := EnvForNewAccount([]string{k + "=x", "KEEP=1"}, "")
 		if len(got) != 1 || got[0] != "KEEP=1" {
 			t.Errorf("%s survived EnvForNewAccount: %v", k, got)
 		}
+	}
+}
+
+// S5 (ct-2026-09-23-2038): the launcher's login goes out as the seed, and a
+// seed the launcher itself inherited never travels on — literal name on
+// purpose, the restapi side reads the same constant.
+func TestEnvForNewAccountSendsTheLaunchersLoginAndNeverForwardsAStaleOne(t *testing.T) {
+	env := []string{"PIUMY_SEED_DASH_HASH=viejo", "KEEP=1"}
+
+	got := EnvForNewAccount(env, "nuevo")
+	want := []string{"KEEP=1", "PIUMY_SEED_DASH_HASH=nuevo"}
+	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+		t.Errorf("with a hash: %v, want %v", got, want)
+	}
+
+	got = EnvForNewAccount(env, "")
+	if len(got) != 1 || got[0] != "KEEP=1" {
+		t.Errorf("without a hash: %v, want only KEEP=1 (a stale seed must not be forwarded)", got)
 	}
 }

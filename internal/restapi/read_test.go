@@ -166,6 +166,51 @@ func TestStatusEndpointAccountColorMatchesConfig(t *testing.T) {
 	}
 }
 
+// S5 (ct-2026-09-23-2038): once the session has a WhatsApp name the account
+// shows THAT name, and the color keeps coming from the id — a rename never
+// repaints the window.
+func TestStatusEndpointAccountShowsTheLabelButKeepsTheIdColor(t *testing.T) {
+	sm := state.NewManager(filepath.Join(t.TempDir(), "status.json"), 8)
+	if err := sm.Update(func(s *state.Status) {
+		s.OwnName = "Contacto Uno"
+		s.OwnJID = "55500000041@s.whatsapp.net"
+	}); err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(NewMux(Deps{State: sm, Account: "cuenta-2"}))
+	defer srv.Close()
+
+	var out struct {
+		Account      string `json:"account"`
+		AccountColor string `json:"account_color"`
+	}
+	getJSON(t, srv.URL+"/api/status", &out)
+	if out.Account != "Contacto Uno · ...0041" {
+		t.Errorf("account = %q, want the WhatsApp name and number tail", out.Account)
+	}
+	if want := config.ColorForAccount("cuenta-2").Hex; out.AccountColor != want {
+		t.Errorf("account_color = %q, want %q (from the id, not the name)", out.AccountColor, want)
+	}
+}
+
+// The default account has no label however named its WhatsApp is.
+func TestStatusEndpointDefaultAccountShowsNoLabelEvenWithAWhatsAppName(t *testing.T) {
+	sm := state.NewManager(filepath.Join(t.TempDir(), "status.json"), 8)
+	if err := sm.Update(func(s *state.Status) { s.OwnName = "Contacto Uno" }); err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(NewMux(Deps{State: sm}))
+	defer srv.Close()
+
+	var out struct {
+		Account string `json:"account"`
+	}
+	getJSON(t, srv.URL+"/api/status", &out)
+	if out.Account != "" {
+		t.Errorf("account = %q with no Deps.Account, want empty", out.Account)
+	}
+}
+
 func TestStatusEndpointGovernorFields(t *testing.T) {
 	sm := state.NewManager(filepath.Join(t.TempDir(), "status.json"), 8)
 	gov := governor.NewLimiter(10, time.Minute)

@@ -74,7 +74,16 @@ func reserveAccountIn(root string) (string, error) {
 // fail to bind the launcher's port).
 var envNotInherited = map[string]bool{
 	"PIUMY_DATA_DIR": true, "PIUMY_MCP_ADDR": true, "PIUMY_REST_ADDR": true,
+	DashHashSeedEnv: true,
 }
+
+// DashHashSeedEnv carries the launcher's dashboard password hash to the new
+// account (S5, ct-2026-09-23-2038), so a second Piumy opens with the SAME
+// login as the one it was opened from instead of the factory admin/piumy.
+// One-shot: restapi.SeedDashPassHashFromEnv reads it at boot and unsets it.
+// Never inherited (envNotInherited) — every launch sets it fresh, so a stale
+// value can't travel down a chain of accounts.
+const DashHashSeedEnv = "PIUMY_SEED_DASH_HASH"
 
 // EnvForNewAccount returns env without what a new named account must not
 // inherit from its launcher (S4, ct-2026-09-23-1908). The launcher — the
@@ -90,8 +99,13 @@ var envNotInherited = map[string]bool{
 // The list of owned paths is accountOwnedPathVars itself — the same one
 // ApplyFileDefaults uses to skip those keys in the FILE for a named account —
 // so there is one place that says what a named account owns.
-func EnvForNewAccount(env []string) []string {
-	out := make([]string, 0, len(env))
+//
+// dashPassHash is the launcher's own dashboard password hash (S5): when not
+// empty it goes out as DashHashSeedEnv, the only way the new account learns
+// the login it should open with. Empty (the launcher never had one) sends
+// nothing — the new account then falls on the same default the launcher will.
+func EnvForNewAccount(env []string, dashPassHash string) []string {
+	out := make([]string, 0, len(env)+1)
 	for _, kv := range env {
 		key, _, _ := strings.Cut(kv, "=")
 		key = strings.ToUpper(key) // Windows env names are case-insensitive
@@ -99,6 +113,9 @@ func EnvForNewAccount(env []string) []string {
 			continue
 		}
 		out = append(out, kv)
+	}
+	if dashPassHash != "" {
+		out = append(out, DashHashSeedEnv+"="+dashPassHash)
 	}
 	return out
 }

@@ -5,12 +5,15 @@ import (
 	"image"
 	_ "image/png"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"piumy-gateway/internal/config"
+	"piumy-gateway/internal/dashboard"
 	"piumy-gateway/internal/state"
 )
 
@@ -44,6 +47,94 @@ func TestDashboardRedirectsWithoutSlash(t *testing.T) {
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusMovedPermanently {
 		t.Errorf("status = %d, want 301 (redirect to /dashboard/)", resp.StatusCode)
+	}
+}
+
+func getDashboardIndex(t *testing.T, d Deps) string {
+	t.Helper()
+	srv := httptest.NewServer(NewMux(d))
+	defer srv.Close()
+	resp, err := http.Get(srv.URL + "/dashboard/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	return string(body)
+}
+
+// S5 (ct-2026-09-23-2038): a named account's window and login say which
+// account they are BEFORE anyone signs in — with an API key set, so no
+// session, and no /api/status, is involved.
+func TestDashboardIndexCarriesTheAccountBeforeLogin(t *testing.T) {
+	page := getDashboardIndex(t, Deps{Account: "cuenta-2", APIKey: "s3cr3t"})
+
+	for _, want := range []string{
+		"<title>Piumy Gateway — cuenta-2</title>",
+		`data-account="cuenta-2"`,
+		`data-account-color="` + config.ColorForAccount("cuenta-2").Hex + `"`,
+	} {
+		if !strings.Contains(page, want) {
+			t.Errorf("index.html misses %q", want)
+		}
+	}
+}
+
+// Once the session is linked, the window says the label (WhatsApp name and
+// number tail) — and the name is anyone's text, so it can't break out of the
+// attribute or the title.
+func TestDashboardIndexShowsTheLabelEscaped(t *testing.T) {
+	sm := state.NewManager(filepath.Join(t.TempDir(), "status.json"), 8)
+	if err := sm.Update(func(s *state.Status) {
+		s.OwnName = `<b>"Uno" & Co`
+		s.OwnJID = "55500000041@s.whatsapp.net"
+	}); err != nil {
+		t.Fatal(err)
+	}
+	page := getDashboardIndex(t, Deps{Account: "cuenta-2", State: sm})
+
+	if !strings.Contains(page, "<title>Piumy Gateway — &lt;b&gt;&#34;Uno&#34; &amp; Co · ...0041</title>") {
+		t.Errorf("title doesn't carry the escaped label: %s", page[:min(len(page), 300)])
+	}
+	if !strings.Contains(page, `data-account="&lt;b&gt;&#34;Uno&#34; &amp; Co · ...0041"`) {
+		t.Error("data-account doesn't carry the escaped label")
+	}
+	if strings.Contains(page, `data-account="<b>`) {
+		t.Error("the WhatsApp name was written unescaped into an attribute")
+	}
+}
+
+// The page needs no session and the port listens on every interface: the
+// owner's WhatsApp name and number tail go only to this machine's own window.
+// httptest.NewRequest's RemoteAddr (192.0.2.1) stands for someone on the network.
+func TestDashboardIndexGivesOtherMachinesOnlyTheAccountId(t *testing.T) {
+	sm := state.NewManager(filepath.Join(t.TempDir(), "status.json"), 8)
+	if err := sm.Update(func(s *state.Status) {
+		s.OwnName = "Contacto Uno"
+		s.OwnJID = "55500000041@s.whatsapp.net"
+	}); err != nil {
+		t.Fatal(err)
+	}
+	rec := httptest.NewRecorder()
+	NewMux(Deps{Account: "cuenta-2", State: sm}).ServeHTTP(rec, httptest.NewRequest("GET", "/dashboard/", nil))
+	page := rec.Body.String()
+
+	if !strings.Contains(page, `data-account="cuenta-2"`) || !strings.Contains(page, "<title>Piumy Gateway — cuenta-2</title>") {
+		t.Errorf("a remote request should get the account id: %s", page[:min(len(page), 300)])
+	}
+	if strings.Contains(page, "Contacto Uno") || strings.Contains(page, "0041") {
+		t.Error("the WhatsApp name or number tail reached a request from another machine, with no session")
+	}
+}
+
+// The default account is untouched: byte for byte the embedded file.
+func TestDashboardIndexWithoutAccountIsTheEmbeddedFile(t *testing.T) {
+	want, err := fs.ReadFile(dashboard.WebFS(), "index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := getDashboardIndex(t, Deps{}); got != string(want) {
+		t.Error("with no account the index.html served differs from the embedded one")
 	}
 }
 

@@ -11,6 +11,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"log"
 	"net/http"
 	"os"
@@ -20,6 +21,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
+	"piumy-gateway/internal/config"
 	"piumy-gateway/internal/i18n"
 	"piumy-gateway/internal/store"
 )
@@ -27,7 +29,7 @@ import (
 const (
 	dashboardUsername        = "admin"
 	dashboardDefaultPassword = "piumy"
-	sessionCookieName        = "piumy_session"
+	sessionCookieBase        = "piumy_session"
 	sessionTTL               = 30 * 24 * time.Hour
 
 	// dashboardPasswordSeedEnv (Windows installer, ct-2026-07-31-1643) — the
@@ -87,6 +89,42 @@ func passHash(st *store.Store) (string, error) {
 	}
 	log.Printf("restapi: dashboard password: sembrado desde %s", source)
 	return string(hash), nil
+}
+
+// SeedDashPassHashFromEnv gives a NEW account the login of the Piumy it was
+// opened from (S5, ct-2026-09-23-2038): without it every new account started
+// on the factory admin/piumy and no screen said so. Same seed-only shape as
+// SeedRecoveryEmailFromEnv — an existing hash is never overwritten.
+//
+// It runs eagerly at boot, not lazily inside passHash, so the env var can
+// leave the process environment whether or not it was used: a lazy seed would
+// never read (or clear) it when the DB already has a hash, and every child of
+// this Piumy — the browser openAppWindow starts included — would inherit it.
+// Running before passHash also makes it win over an inherited
+// PIUMY_DASHBOARD_PASSWORD. The value is never logged, and one that isn't a
+// bcrypt hash is ignored rather than written as a login nobody can pass.
+func SeedDashPassHashFromEnv(st *store.Store) error {
+	seed := os.Getenv(config.DashHashSeedEnv)
+	if seed == "" {
+		return nil
+	}
+	os.Unsetenv(config.DashHashSeedEnv)
+	existing, err := st.KVGet(store.SettingDashPassHash)
+	if err != nil {
+		return err
+	}
+	if existing != "" {
+		return nil
+	}
+	if _, err := bcrypt.Cost([]byte(seed)); err != nil {
+		log.Printf("restapi: clave del tablero: %s no trae un hash válido, se ignora", config.DashHashSeedEnv)
+		return nil
+	}
+	if err := st.KVSet(store.SettingDashPassHash, seed); err != nil {
+		return err
+	}
+	log.Println("restapi: clave del tablero: heredada de la cuenta desde la que se abrió este Piumy")
+	return nil
 }
 
 // isFactoryPassword reports whether the dashboard's current password still
@@ -161,13 +199,29 @@ func verifySession(secret []byte, token string) bool {
 	return time.Now().Unix() < expUnix
 }
 
+// sessionCookieName is the cookie an account keeps its session in (S5,
+// ct-2026-09-23-2038). Browsers key cookies by host, not port, so two Piumy on
+// localhost share one jar: with a single name each login overwrote the other
+// account's cookie and signing in to B kicked A out (measured: A 200, B 200,
+// A again 401). A named account adds 8 hex of sha256(account) — the id itself
+// can't go in the name: accountSlug lets spaces, ";", "=" and unicode through,
+// and a cookie name takes none of them. No account keeps the original name, so
+// the live install's sessions survive this change.
+func sessionCookieName(account string) string {
+	if account == "" {
+		return sessionCookieBase
+	}
+	sum := sha256.Sum256([]byte(account))
+	return sessionCookieBase + "_" + hex.EncodeToString(sum[:4])
+}
+
 // validSession is the alternate credential auth() checks alongside
 // X-API-Key — a valid signed cookie is enough, no key needed.
 func (d Deps) validSession(r *http.Request) bool {
 	if d.Store == nil {
 		return false
 	}
-	c, err := r.Cookie(sessionCookieName)
+	c, err := r.Cookie(sessionCookieName(d.Account))
 	if err != nil {
 		return false
 	}
@@ -178,10 +232,10 @@ func (d Deps) validSession(r *http.Request) bool {
 	return verifySession(secret, c.Value)
 }
 
-func setSessionCookie(w http.ResponseWriter, secret []byte) {
+func (d Deps) setSessionCookie(w http.ResponseWriter, secret []byte) {
 	expiry := time.Now().Add(sessionTTL)
 	http.SetCookie(w, &http.Cookie{
-		Name:     sessionCookieName,
+		Name:     sessionCookieName(d.Account),
 		Value:    signSession(secret, expiry),
 		Path:     "/",
 		Expires:  expiry,
@@ -229,7 +283,7 @@ func (d Deps) handleLogin(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
-	setSessionCookie(w, secret)
+	d.setSessionCookie(w, secret)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 

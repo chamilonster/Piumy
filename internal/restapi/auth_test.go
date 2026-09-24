@@ -6,10 +6,13 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
+	"os"
+	"strings"
 	"testing"
 
 	"golang.org/x/crypto/bcrypt"
 
+	"piumy-gateway/internal/config"
 	"piumy-gateway/internal/store"
 )
 
@@ -58,8 +61,10 @@ func TestLoginDefaultCredentials(t *testing.T) {
 		t.Fatal("no Set-Cookie on successful login")
 	}
 	c := resp.Cookies()[0]
-	if c.Name != sessionCookieName || !c.HttpOnly {
-		t.Errorf("cookie = %+v, want HttpOnly %s", c, sessionCookieName)
+	// Literal on purpose: the live install's sessions live under this exact
+	// name, and a test that reads the constant can't notice it being renamed.
+	if c.Name != "piumy_session" || !c.HttpOnly {
+		t.Errorf("cookie = %+v, want HttpOnly piumy_session", c)
 	}
 }
 
@@ -384,5 +389,142 @@ func TestChangePasswordInvalidatesExistingSessions(t *testing.T) {
 	defer newLogin.Body.Close()
 	if newLogin.StatusCode != http.StatusOK {
 		t.Errorf("re-login with new password = %d, want 200", newLogin.StatusCode)
+	}
+}
+
+// TestSessionCookieName (S5, ct-2026-09-23-2038): the default account keeps
+// the original name (the live install's sessions must survive), a named one
+// gets its own, and whatever the account id holds, the result is a legal
+// cookie name — accountSlug lets spaces, ";", "=" and unicode through.
+func TestSessionCookieName(t *testing.T) {
+	if got := sessionCookieName(""); got != "piumy_session" {
+		t.Errorf("no account: %q, want piumy_session (the live install's own cookie)", got)
+	}
+	if sessionCookieName("cuenta-2") == sessionCookieName("cuenta-3") {
+		t.Error("two accounts share one cookie name — the bug S5 fixes")
+	}
+	for _, account := range []string{"cuenta-2", "Trabajo Ñ; x=y", "日本"} {
+		name := sessionCookieName(account)
+		if !strings.HasPrefix(name, "piumy_session_") {
+			t.Errorf("%q -> %q, want the piumy_session_ prefix", account, name)
+		}
+		if err := (&http.Cookie{Name: name, Value: "v"}).Valid(); err != nil {
+			t.Errorf("%q -> %q is not a legal cookie name: %v", account, name, err)
+		}
+	}
+}
+
+// TestTwoAccountsKeepTheirOwnSessionInOneBrowser is the bug as measured with
+// curl before S5 (login A 200, login B 200, A again 401): both servers answer
+// on 127.0.0.1 and cookiejar keys by host without the port — the same jar a
+// real browser keeps for localhost. Each account's session must survive the
+// other's login.
+func TestTwoAccountsKeepTheirOwnSessionInOneBrowser(t *testing.T) {
+	servers := map[string]*httptest.Server{}
+	for _, account := range []string{"cuenta-2", "cuenta-3"} {
+		srv := httptest.NewServer(NewMux(Deps{Store: newTestStore(t), APIKey: "s3cr3t", Account: account}))
+		t.Cleanup(srv.Close)
+		servers[account] = srv
+	}
+	client := clientWithJar(t)
+	for account, srv := range servers {
+		resp := loginAs(t, client, srv.URL, "admin", "piumy")
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("login on %s = %d, want 200", account, resp.StatusCode)
+		}
+	}
+	for account, srv := range servers {
+		resp, err := client.Get(srv.URL + "/api/admin/capi-connector")
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("%s after both logins = %d, want 200 (the other account's login must not expel it)", account, resp.StatusCode)
+		}
+	}
+}
+
+func seedHash(t *testing.T, password string) string {
+	t.Helper()
+	h, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.MinCost)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(h)
+}
+
+// TestSeedDashPassHashFromEnvGivesTheNewAccountTheLaunchersLogin (S5): the
+// hash wins even over an inherited PIUMY_DASHBOARD_PASSWORD, and the variable
+// is gone from the environment right after.
+func TestSeedDashPassHashFromEnvGivesTheNewAccountTheLaunchersLogin(t *testing.T) {
+	t.Setenv(config.DashHashSeedEnv, seedHash(t, "clave-del-padre"))
+	t.Setenv(dashboardPasswordSeedEnv, "clave-vieja-del-instalador")
+	st := newTestStore(t)
+
+	if err := SeedDashPassHashFromEnv(st); err != nil {
+		t.Fatal(err)
+	}
+	hash, err := passHash(st)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bcrypt.CompareHashAndPassword([]byte(hash), []byte("clave-del-padre")) != nil {
+		t.Error("the new account did not get the launcher's password")
+	}
+	if got := os.Getenv(config.DashHashSeedEnv); got != "" {
+		t.Errorf("%s still in the environment after the seed: children would inherit it", config.DashHashSeedEnv)
+	}
+}
+
+// Seed-only, like every other seed: an account that already has a login keeps
+// it — and the variable still leaves the environment (that is the point of
+// seeding eagerly instead of inside passHash).
+func TestSeedDashPassHashFromEnvNeverOverwritesAnExistingHash(t *testing.T) {
+	st := newTestStore(t)
+	if _, err := passHash(st); err != nil { // lands on the factory default
+		t.Fatal(err)
+	}
+	t.Setenv(config.DashHashSeedEnv, seedHash(t, "no-deberia-pisar"))
+
+	if err := SeedDashPassHashFromEnv(st); err != nil {
+		t.Fatal(err)
+	}
+	hash, _ := passHash(st)
+	if bcrypt.CompareHashAndPassword([]byte(hash), []byte(dashboardDefaultPassword)) != nil {
+		t.Error("an existing hash was overwritten by the env seed")
+	}
+	if got := os.Getenv(config.DashHashSeedEnv); got != "" {
+		t.Errorf("%s left in the environment when the DB already had a hash", config.DashHashSeedEnv)
+	}
+}
+
+// A value that is not a bcrypt hash must never be written as the login: no
+// password would match it and the owner would be locked out of the new window.
+func TestSeedDashPassHashFromEnvIgnoresAValueThatIsNotABcryptHash(t *testing.T) {
+	t.Setenv(config.DashHashSeedEnv, "esto-no-es-un-hash")
+	st := newTestStore(t)
+
+	if err := SeedDashPassHashFromEnv(st); err != nil {
+		t.Fatal(err)
+	}
+	if v, _ := st.KVGet(store.SettingDashPassHash); v != "" {
+		t.Errorf("a non-bcrypt seed was written as the hash: %q", v)
+	}
+	hash, _ := passHash(st)
+	if bcrypt.CompareHashAndPassword([]byte(hash), []byte(dashboardDefaultPassword)) != nil {
+		t.Error("after ignoring a bad seed the account should fall on the usual default")
+	}
+}
+
+func TestSeedDashPassHashFromEnvWithoutSeedTouchesNothing(t *testing.T) {
+	t.Setenv(config.DashHashSeedEnv, "")
+	st := newTestStore(t)
+	if err := SeedDashPassHashFromEnv(st); err != nil {
+		t.Fatal(err)
+	}
+	if v, _ := st.KVGet(store.SettingDashPassHash); v != "" {
+		t.Errorf("no seed but a hash was written: %q", v)
 	}
 }

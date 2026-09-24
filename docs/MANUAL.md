@@ -140,7 +140,7 @@ solo los campos que sus propios paquetes necesitan.
     ya trimeado, LA fuente para cualquier consumidor que no sea `DataDir`/
     el default de puertos (ambos siguen leyendo el env var directo, cada
     uno por su propia razón). Consumido por la bandeja
-    (`main.go` → `runTrayOrWait(..., cfg.Account)`) y por `restapi.Deps.Account`
+    (`main.go` → `runTrayOrWait(..., cfg.Account, s, sm)`) y por `restapi.Deps.Account`
     (S3, ver abajo) — cablear desde acá en vez de un tercer/cuarto
     `os.Getenv` es la regla del proyecto. Ver
     `docs/S2-DIAGRAMA-DISTINTIVO-VISUAL.md`.
@@ -152,7 +152,7 @@ solo los campos que sus propios paquetes necesitan.
       elegir el mismo nombre (`TestReserveAccountInConcurrentCallsGetDistinctNames`).
       La raíz sale de la base del SO (`baseDir`, extraída de `dataDirFor`), no
       de `DataDir()`: un Piumy que ya es `cuenta-2` responde `cuenta-3`.
-    - `EnvForNewAccount(env []string) []string` — el entorno con el que se
+    - `EnvForNewAccount(env []string, dashPassHash string) []string` — el entorno con el que se
       lanza el proceso hijo, **sin lo que una cuenta con nombre no hereda**:
       `accountOwnedPathVars` (la MISMA lista de `filedefaults.go`) más
       `PIUMY_DATA_DIR`/`PIUMY_MCP_ADDR`/`PIUMY_REST_ADDR`. Sin esto el hijo
@@ -162,10 +162,32 @@ solo los campos que sus propios paquetes necesitan.
       hashea el directorio del hijo). Medido en el smoke real con un binario
       sin el filtro: el hijo escribió en la carpeta del padre, pisó su
       `agent-connect.json` y dejó `accounts/cuenta-2` vacía.
+      **S5 (`ct-2026-09-23-2038`):** `dashPassHash` — el `dash_pass_hash` de
+      la cuenta que lanza — sale como `DashHashSeedEnv`
+      (`PIUMY_SEED_DASH_HASH`), para que la cuenta nueva abra con la MISMA
+      clave y no con el `admin/piumy` de fábrica; vacío (el padre nunca
+      tuvo clave guardada) no manda nada. `DashHashSeedEnv` también es de lo
+      que NO se hereda: cada lanzamiento lo fija de nuevo, una semilla vieja
+      no baja por una cadena de cuentas.
     - `CanOpenAnotherAccount() bool` — `false` con `PIUMY_DATA_DIR` puesto
       (`DataDir()` lo devuelve verbatim ignorando la cuenta): la bandeja no
       muestra el ítem. Una instancia de prueba así jamás toca la raíz real.
     Ver `docs/S4-DIAGRAMA-ABRIR-OTRO-PIUMY.md`.
+  - **`accountlabel.go` — `AccountLabel(account, ownName, ownJID string)`
+    (S5, `ct-2026-09-23-2038`).** El nombre que una cuenta con nombre le
+    muestra a la persona, en UN solo lugar: `"<nombre de WhatsApp> ·
+    ...<últimos 4 dígitos de su número>"` una vez vinculada
+    (`"Contacto Uno · ...0041"`), `"...0041"` si la sesión no tiene
+    nombre, y el id (`"cuenta-2"`) mientras no tiene número. Los dígitos la
+    hacen única por cuenta sin mirar las otras: dos cuentas pueden compartir
+    nombre de WhatsApp, nunca número (decisión de Citrino; es un
+    distinguidor, no una llave — dos números que terminen igual darían la
+    misma cola). Sin cuenta devuelve `""`: la cuenta por defecto no muestra
+    etiqueta aunque su WhatsApp tenga nombre. Lo leen `GET /api/status`, el
+    HTML del login, la bandeja y los nombres de los `.lnk`; el COLOR sigue
+    saliendo del id (`ColorForAccount`), renombrar no repinta la cuenta.
+    El sufijo de dispositivo del JID (`número:12@...`) se corta antes de
+    tomar los dígitos.
   - **`accountcolor.go` — `AccountColor`/`ColorForAccount`/`RGBToHSV`/
     `HSVToRGB` (S3, `ct-2026-09-20-1202`).** La pieza de diseño central del
     peldaño: **única fuente de color**, movida acá desde `main` (que S2
@@ -8497,8 +8519,9 @@ del dueño desde la LAN, sin agente de por medio. Grupo/perfil NO están acá
         `Config` (importar todo `Config` a `restapi` por un solo bool
         hubiera sido más acoplamiento del necesario).
       - **`account` (string) / `account_color` (string, hex) — S3
-        (ct-2026-09-20-1202).** `account` = `Deps.Account` (= `cfg.Account`)
-        verbatim; `account_color` = `config.ColorForAccount(Deps.Account).Hex`
+        (ct-2026-09-20-1202).** `account` = `config.AccountLabel(Deps.Account,
+        OwnName, OwnJID)` (S5: nombre de WhatsApp y cola del número una vez
+        vinculada, el id `cfg.Account` mientras no); `account_color` = `config.ColorForAccount(Deps.Account).Hex`
         — la MISMA función que `tray_windows.go` le pasa a
         `RecolorTrayIcon` para pintar el ícono (`internal/config`'s propio
         doc, sección `config` de este manual). `restapi` nunca deriva su
@@ -8533,6 +8556,22 @@ del dueño desde la LAN, sin agente de por medio. Grupo/perfil NO están acá
     `internal/dashboard.WebFS()` (embed compilado, `internal/dashboard/web/`
     — `index.html`/`style.css`/`app.js`, vanilla, sin build step) vía
     `http.FileServer`.
+  - **`indexWithAccount` — título y login con el nombre ANTES de iniciar sesión
+    (S5, `ct-2026-09-23-2038`).** Una cuenta con nombre sirve su propio
+    `index.html`: `<title>Piumy Gateway — <etiqueta></title>` y
+    `<body data-account="…" data-account-color="…">` (todo escapado con
+    `html.EscapeString`: la etiqueta puede ser el nombre de WhatsApp de
+    cualquiera). Antes la ventana decía "Piumy Gateway" pelado hasta
+    autenticar porque el nombre llegaba solo por `/api/status`, que exige
+    sesión. `app.js` (`showLogin`) pinta el chip `#loginaccount` con
+    `t("account.label")` + el color de esos atributos. **Puerta en el
+    código, no en la UI:** la página se sirve sin sesión y el puerto escucha
+    en todas las interfaces, y la etiqueta lleva nombre y cola del número
+    del dueño — solo una petición desde esta misma máquina (`isLoopback`, la
+    ventana de la app) los recibe; el resto de la red recibe el id de la
+    cuenta (`TestDashboardIndexGivesOtherMachinesOnlyTheAccountId`). Sin
+    cuenta el archivo sale byte por byte el embebido. Se arma por petición,
+    no una vez: la etiqueta cambia cuando la sesión recibe su nombre.
   - `GET /api/qr/image` → el QR actual como PNG (`rsc.io/qr` —
     YA era dependencia indirecta vía `qrterminal`, esto solo la promueve a
     directa, cero dependencia nueva). 404 si no hay QR pendiente.
@@ -9529,7 +9568,8 @@ del dueño desde la LAN, sin agente de por medio. Grupo/perfil NO están acá
       Usuario incorrecto y contraseña incorrecta devuelven el MISMO error
       (`"invalid credentials"`) — no hay nada que enumerar con un solo
       usuario fijo. Éxito → `Set-Cookie` firmada (ver abajo).
-    - **Sesión**: cookie `piumy_session`, HttpOnly + `SameSite=Strict`
+    - **Sesión**: cookie `piumy_session` (con cuenta con nombre, S5:
+      `piumy_session_<8 hex de sha256(cuenta)>`, ver abajo), HttpOnly + `SameSite=Strict`
       (mitiga CSRF sin necesitar un token aparte — la cookie nunca viaja en
       un POST cross-site) + `Secure` OMITIDO a propósito (`ponytail`: el
       gateway sirve HTTP plano en la LAN, sin TLS en `main.go` — una cookie
@@ -9538,6 +9578,27 @@ del dueño desde la LAN, sin agente de por medio. Grupo/perfil NO están acá
       `verifySession`, HMAC-SHA256) — no hay tabla de sesiones server-side;
       verificar la firma ES verificar la sesión, y `store.RotateDashSessionSecret`
       (ver sección `store`) es lo que "cerrar todas las sesiones" significa.
+    - **Cookie por cuenta — S5 (`ct-2026-09-23-2038`).** El navegador guarda
+      las cookies por host, no por puerto: dos Piumy en `localhost`
+      compartían UN frasco, y con un solo nombre cada login pisaba la cookie
+      de la otra cuenta (medido con curl: login A `200`, login B `200`, A de
+      nuevo `401`). `sessionCookieName(account)` agrega 8 hex de
+      `sha256(account)` — el id no puede ir en el nombre, `accountSlug` deja
+      pasar espacios, `;`, `=` y unicode y una cookie no. Sin cuenta conserva
+      `piumy_session`: la sesión viva no se cae. Verificado con los dos
+      binarios reales y un frasco de curl (`TestTwoAccountsKeepTheirOwnSessionInOneBrowser`
+      lo reproduce y falla contra el nombre único).
+    - **`SeedDashPassHashFromEnv(st)` — la cuenta nueva abre con la clave de
+      la que la abrió (S5).** Mismo molde seed-only que
+      `SeedRecoveryEmailFromEnv` y en el mismo lugar de `main.go`: lee
+      `config.DashHashSeedEnv`, la **saca del entorno siempre** (haya o no
+      clave; por eso es al arrancar y no perezosa dentro de `passHash`: si la
+      DB ya tenía clave, `passHash` nunca la leería y el hash quedaría en el
+      entorno de todo hijo, el navegador de `openAppWindow` incluido) y solo
+      escribe si la DB no tiene clave y el valor es un hash bcrypt válido (uno
+      que no lo es se ignora: ninguna clave lo abriría). Corre antes que
+      cualquier `passHash`, así que gana sobre un `PIUMY_DASHBOARD_PASSWORD`
+      heredado. El valor nunca se loguea.
     - `POST /api/admin/password {current_password, new_password}` — SÍ
       detrás de `d.auth` (necesita estar ya adentro), pero además re-valida
       `current_password` contra el hash actual dentro del propio handler —
@@ -10359,8 +10420,8 @@ es un paso aparte, conjunto con el boss (no en `main.go`).
   `ctx` raíz (no uno propio como `Controller`), así que `ctx.Done()` ya
   los para solos.
 - **Tray de Windows** (F3, ct-2026-07-10-2312) — `runTrayOrWait(ctx, stop,
-  dashboardURL, lang, langChanged, account)` (`account` agregado en S2,
-  ct-2026-09-20-1134) reemplaza el antiguo `<-ctx.Done()` desnudo, misma
+  dashboardURL, lang, langChanged, account, st, sm)` (`account` agregado en S2,
+  ct-2026-09-20-1134; `st`/`sm` en S5) reemplaza el antiguo `<-ctx.Done()` desnudo, misma
   capa (`package main`, junto a `main.go`), build-tag gated:
   - **S2 (ct-2026-09-20-1134) — distintivo visual por cuenta.** Boss
     verbatim (2026-09-19): *"tambien que se pueden abrir multiples
@@ -10368,8 +10429,9 @@ es un paso aparte, conjunto con el boss (no en `main.go`).
     'nombre de cuenta es'"*. `account` viene de `cfg.Account`
     (`internal/config`, ver la sección `config` arriba) — cableado desde
     la fuente, nunca un tercer `os.Getenv("PIUMY_ACCOUNT")`.
-    - **Título/tooltip del ícono:** `"Piumy Gateway — " + account` con
-      cuenta, exactamente `"Piumy Gateway"` sin ella — cero cambio en el
+    - **Título/tooltip del ícono:** `trayTitle(label)` = `"Piumy Gateway — " +
+      label` con cuenta (S5: `label` = `config.AccountLabel`, ya no el id
+      pelado), exactamente `"Piumy Gateway"` sin ella — cero cambio en el
       caso sin cuenta (99% de los casos).
     - **Ítem de menú** deshabilitado, al lado del de versión —
       `i18n.T(lang, "account.label", "account", account)`
@@ -10442,10 +10504,60 @@ es un paso aparte, conjunto con el boss (no en `main.go`).
       completa (`secrets/`, `logs/`), padre intacto; el `.lnk` reabre la misma
       cuenta y abre el tablero (`localhost:<puerto de la cuenta>`); un clic real
       = una cuenta; el QR se genera al pulsar "Conectar QR" (no se escaneó).
-    - **Conocido, fuera de S4:** las cuentas comparten la cookie de sesión del
-      tablero (mismo host `localhost`, mismo nombre de cookie, secreto distinto
-      por cuenta) — entrar al tablero de una cuenta cierra la sesión del otro
-      (medido con curl: `401` en el primero tras el login del segundo).
+    - **Cerrado en S5** (`ct-2026-09-23-2038`): la cookie de sesión compartida
+      entre cuentas — ver "Cookie por cuenta" en `auth.go`.
+  - **Detalles de la segunda cuenta — S5 (`ct-2026-09-23-2038`, boss: "quiero un
+    software clever", "me gustan los detalles").** Regla: nada que el boss deba
+    SABER y la pantalla no diga. Ver `docs/S5-DIAGRAMA-DETALLES-SEGUNDA-CUENTA.md`.
+    - **Misma clave que la cuenta de origen.** `openAnotherPiumy(st)` lee
+      `SettingDashPassHash` de su propio store y lo pasa a `launchAccount(exe,
+      name, hash)` → `config.EnvForNewAccount(..., hash)`; el hijo lo siembra
+      (`restapi.SeedDashPassHashFromEnv`). Verificado en el binario real: el
+      hijo acepta la clave del padre y rechaza `piumy`.
+      `TestLaunchAccountHandsTheChildTheLaunchersLoginAndNotItsData` re-ejecuta el
+      binario de test como hijo (`TestMain` con `PIUMY_TEST_ENV_DUMP`) y mira el
+      entorno que `launchAccount` de verdad entrega.
+    - **Nombre visible = `label`.** `accountLabels(account, sm)` lee
+      `state.Status.OwnName/OwnJID` y arma la etiqueta con `config.AccountLabel`;
+      la bandeja la relee **cada 5 s** (`accountLabelPollEvery`; sondeo y no
+      evento: es un campo de `state.Status`, que no avisa cambios, y se mueve
+      una vez en la vida de una cuenta). Título, tooltip e ítem "Cuenta:" la
+      siguen; el ítem y el `langChanged` usan `label`, no el id.
+    - **`.lnk` siguen la etiqueta** (`shortcut_windows.go`,
+      `renameAccountShortcuts(dirs, label, olds...)`): el número llega ANTES que
+      el nombre, así que la etiqueta va `cuenta-2` → `...0041` → `Contacto Uno ·
+      ...0041` en segundos y el archivo tiene que terminar en la última — por eso
+      busca el `.lnk` por las etiquetas que pudo tener (`olds`: el id, la
+      etiqueta anterior, la que tenía solo el número) y no solo por el id.
+      `cleanShortcutLabel` saca lo que Windows no acepta en un nombre
+      (`<>:"/\|?*`), pasa los caracteres de control a blanco, colapsa blancos y
+      corta a 60 caracteres (no bytes). Si el nombre nuevo YA existe en
+      cualquier carpeta no se renombra en ninguna (es lo que la propia función
+      deja atrás, así que volver a llamarla es no-op, y un nombre ajeno no
+      separa Escritorio de Inicio). Se llama al arrancar (`status.json`
+      sobrevive) y en cada cambio de etiqueta.
+    - **Arranque con Windows consistente.** `autostartFolder()`: si existe
+      `{userstartup}\Piumy.lnk` (la tarea `startupicon` del instalador,
+      `installerStartupShortcut`) "Abrir otro Piumy" crea también
+      `Piumy (cuenta-N).lnk` en Inicio (`startupFolder()` = `FOLDERID_Startup`;
+      `TestStartupFolderIsTheOneTheInstallerWritesTo` lo compara con la ruta que
+      Inno expande). Si no existe, no se crea.
+    - **Smoke real (binario de prueba, `LOCALAPPDATA` propio, puertos solo en
+      loopback, claves falsas; sin clics de escritorio):** hijo sembrado con el
+      hash del padre (log "clave del tablero: heredada…"); `<title>` y
+      `data-account` en el HTML sin sesión; ventana real titulada `Piumy Gateway —
+      cuenta-2`; el hijo acepta la clave del padre (`200`) y rechaza la de
+      fábrica (`401`); frasco de curl con las dos cuentas: cookies
+      `piumy_session` y `piumy_session_<hash>`, las dos sesiones vivas a la vez
+      (control: sin cookie `401`); con `status.json` de una cuenta vinculada
+      (número `555…`), título con `Contacto Uno · ...0041` y los `.lnk` de
+      Escritorio e Inicio renombrados. Los `.lnk` de prueba y los procesos se
+      borraron. **No se probó de punta a punta:** el clic en el ítem de la
+      bandeja (el boss pidió dejar los smokes con clics de escritorio; cubren
+      el camino `launchAccount`, el renombrado y `startupFolder` sus tests), la
+      creación del `.lnk` en Inicio ni el cambio de nombre en vivo del sondeo.
+    - **Techos declarados:** el sondeo de 5 s (hasta 5 s entre vincular y que la
+      bandeja lo diga); los últimos 4 dígitos son un distinguidor, no una llave.
   - **i18n (T153 etapa 3c, ct-2026-09-16-1854; +1 clave en S2,
     ct-2026-09-20-1134, renombrada `server.tray_account` →
     `account.label` en S3, ct-2026-09-20-1202 — ya no es solo de la
